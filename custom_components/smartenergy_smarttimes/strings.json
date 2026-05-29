@@ -39,6 +39,9 @@
       },
       "highest_today": {
         "name": "Höchster Preis heute"
+      },
+      "basic_fee": {
+        "name": "Grundgebühr"
       }
     }
   }

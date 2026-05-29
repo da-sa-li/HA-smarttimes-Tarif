@@ -19,7 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
-from .const import DOMAIN, UNIT_CT_PER_KWH
+from .const import DOMAIN, UNIT_CT_PER_KWH, UNIT_EUR_PER_MONTH
 from .coordinator import SmartTimesCoordinator, SmartTimesData
 
 
@@ -28,6 +28,7 @@ class SmartTimesSensorDescription(SensorEntityDescription):
     """Beschreibung eines smartTIMES-Sensors."""
 
     value_fn: Callable[[SmartTimesData], StateType]
+    unit: str = UNIT_CT_PER_KWH
 
 
 def _current_value(data: SmartTimesData) -> StateType:
@@ -53,6 +54,10 @@ def _lowest_today(data: SmartTimesData) -> StateType:
 def _highest_today(data: SmartTimesData) -> StateType:
     values = _today_values(data)
     return max(values) if values else None
+
+
+def _basic_fee(data: SmartTimesData) -> StateType:
+    return data.basic_fee()
 
 
 SENSORS: tuple[SmartTimesSensorDescription, ...] = (
@@ -85,6 +90,14 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
         suggested_display_precision=3,
         value_fn=_highest_today,
     ),
+    SmartTimesSensorDescription(
+        key="basic_fee",
+        translation_key="basic_fee",
+        icon="mdi:cash",
+        unit=UNIT_EUR_PER_MONTH,
+        suggested_display_precision=2,
+        value_fn=_basic_fee,
+    ),
 )
 
 
@@ -105,7 +118,6 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
 
     entity_description: SmartTimesSensorDescription
     _attr_has_entity_name = True
-    _attr_native_unit_of_measurement = UNIT_CT_PER_KWH
 
     def __init__(
         self,
@@ -115,6 +127,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
     ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
+        self._attr_native_unit_of_measurement = description.unit
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
@@ -169,6 +182,8 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "average_today": _average_today(data),
             "lowest_today": _lowest_today(data),
             "highest_today": _highest_today(data),
+            "basic_fee": data.basic_fee(),
+            "basic_fee_unit": data.basic_fee_unit,
             "prices_today": serialise(data.for_day(today)),
             "prices_tomorrow": serialise(data.for_day(tomorrow)),
             "prices": serialise(data.prices),

@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import MarketPrice, SmartTimesApiClient, SmartTimesApiError, SmartTimesResult
+from .api import FeeEntry
 from .const import (
     DOMAIN,
     MIN_FETCH_INTERVAL_MINUTES,
@@ -30,6 +31,8 @@ class SmartTimesData:
     interval_minutes: int
     include_vat: bool
     prices: list[MarketPrice] = field(default_factory=list)
+    basic_fees: list[FeeEntry] = field(default_factory=list)
+    basic_fee_unit: str | None = None
 
     def current(self, moment: datetime | None = None) -> MarketPrice | None:
         """Der für ``moment`` (Standard: jetzt) gültige Preis-Eintrag."""
@@ -55,6 +58,15 @@ class SmartTimesData:
     def value(self, price: MarketPrice) -> float:
         """Preis eines Eintrags gemäß Brutto-/Netto-Einstellung."""
         return price.price(self.include_vat)
+
+    def basic_fee(self, moment: datetime | None = None) -> float | None:
+        """Die für ``moment`` gültige Grundgebühr (gemäß Brutto-/Netto-Einstellung)."""
+        if not self.basic_fees:
+            return None
+        moment = moment or dt_util.now()
+        applicable = [f for f in self.basic_fees if f.start <= moment]
+        entry = applicable[-1] if applicable else self.basic_fees[0]
+        return entry.value(self.include_vat)
 
 
 class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
@@ -127,4 +139,6 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             interval_minutes=result.interval_minutes,
             include_vat=self._include_vat,
             prices=result.prices,
+            basic_fees=result.basic_fees,
+            basic_fee_unit=result.basic_fee_unit,
         )

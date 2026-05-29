@@ -14,6 +14,7 @@ verschieben.
 
 - 🔌 **Aktueller Strompreis** der laufenden 15-Minuten-Tarifzone
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchstpreis von heute
+- 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
 - 🗓️ **Vollständige Preisvorschau** für heute und morgen als Attribute
   (z. B. für Diagramme oder Automatisierungen)
 - 💶 Umschaltbar zwischen **Brutto** (inkl. 20 % USt.) und **Netto**
@@ -28,18 +29,40 @@ https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 ```
 
 Die API liefert pro Zeitintervall (i. d. R. 15 Minuten) den gültigen
-Tarifpreis. Laut [Spezifikation](https://www.smartenergy.at/api-schnittstellen-smarttimes):
+Tarifpreis sowie die monatliche Grundgebühr. Die Antwort ist wie folgt
+aufgebaut:
 
-| Feld         | Bedeutung                                              |
-|--------------|--------------------------------------------------------|
-| `tariff`     | Tarif (z. B. `smartTIMES`)                             |
-| `unit`       | Einheit des Werts von `data:value` (z. B. `ct/kWh`)    |
-| `interval`   | Gültigkeit des Preises in Minuten                      |
-| `data:date`  | Preis gültig ab (lokales Datum und Uhrzeit)            |
-| `data:value` | Preis **inkl. 20 % MwSt.** (dezimal)                   |
+```json
+{
+  "energyPrice": {
+    "interval": 15,
+    "unit": "cent/kWh",
+    "values": [
+      { "dateTimeFrom": "2026-05-29T00:00:00+02:00", "value": 11.244 },
+      { "dateTimeFrom": "2026-05-29T00:15:00+02:00", "value": 11.244 }
+    ]
+  },
+  "basicFee": {
+    "unit": "EUR/month",
+    "values": [
+      { "dateTimeFrom": "2026-05-29T00:00:00+02:00", "value": 2.988 }
+    ]
+  }
+}
+```
 
-> Hinweis: Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home
-> Assistant korrekt auf `Europe/Vienna` eingestellt sein.
+| Feld                       | Bedeutung                                          |
+|----------------------------|----------------------------------------------------|
+| `energyPrice.unit`         | Einheit des Energiepreises (z. B. `cent/kWh`)      |
+| `energyPrice.interval`     | Gültigkeit des Preises in Minuten                  |
+| `…values[].dateTimeFrom`   | Preis gültig ab (lokale Datum/Uhrzeit, mit Offset) |
+| `…values[].value`          | Preis **inkl. 20 % MwSt.** (dezimal)               |
+| `basicFee`                 | Monatliche Grundgebühr (z. B. `EUR/month`)         |
+
+> Hinweis: Die Integration unterstützt zusätzlich das ältere, in der
+> Dokumentation gezeigte Format (`data` / `date`) als Fallback. Da die API
+> lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant korrekt
+> auf `Europe/Vienna` eingestellt sein.
 
 ## Installation
 
@@ -72,8 +95,10 @@ Die Brutto-/Netto-Einstellung lässt sich später jederzeit über
 | `sensor.smartenergy_smarttimes_durchschnittspreis_heute` | Durchschnittspreis des heutigen Tages |
 | `sensor.smartenergy_smarttimes_niedrigster_preis_heute`  | Günstigster Preis heute              |
 | `sensor.smartenergy_smarttimes_hochster_preis_heute`     | Teuerster Preis heute                |
+| `sensor.smartenergy_smarttimes_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
 
-Alle Sensoren verwenden die Einheit **ct/kWh**.
+Die Preissensoren verwenden die Einheit **ct/kWh**, der Grundgebühr-Sensor
+**EUR/Monat**.
 
 > Die genauen Entity-IDs können je nach Spracheinstellung abweichen.
 
@@ -91,6 +116,7 @@ Der Sensor `Aktueller Preis` enthält zusätzlich umfangreiche Attribute:
 | `next_price`        | Preis der nächsten Tarifzone                              |
 | `next_price_start`  | Beginn der nächsten Tarifzone                             |
 | `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen           |
+| `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit        |
 | `prices_today`      | Liste aller heutigen Preise (`start`, `end`, `price`)     |
 | `prices_tomorrow`   | Liste aller morgigen Preise (sofern verfügbar)            |
 | `prices`            | Vollständige Preisliste (gut für Diagramme)               |

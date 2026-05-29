@@ -39,6 +39,9 @@
       },
       "highest_today": {
         "name": "Highest price today"
+      },
+      "basic_fee": {
+        "name": "Basic fee"
       }
     }
   }
