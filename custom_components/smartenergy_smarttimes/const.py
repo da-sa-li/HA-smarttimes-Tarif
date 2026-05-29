@@ -16,6 +16,7 @@ VAT_RATE: Final = 0.20
 
 # Anzeige-Einheiten.
 UNIT_CT_PER_KWH: Final = "ct/kWh"
+UNIT_EUR_PER_KWH: Final = "EUR/kWh"
 UNIT_EUR_PER_MONTH: Final = "EUR/Monat"
 
 # Tarifzonen-Status (stabile Werte für Automatisierungen).

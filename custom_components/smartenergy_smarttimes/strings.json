@@ -31,6 +31,9 @@
       "current_price": {
         "name": "Aktueller Preis"
       },
+      "current_price_eur": {
+        "name": "Aktueller Preis (EUR/kWh)"
+      },
       "average_today": {
         "name": "Durchschnittspreis heute"
       },
