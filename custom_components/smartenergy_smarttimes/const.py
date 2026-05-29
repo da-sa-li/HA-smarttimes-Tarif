@@ -14,8 +14,9 @@ API_TIMEOUT: Final = 30
 # Die API liefert Bruttopreise inkl. 20 % österreichischer Umsatzsteuer.
 VAT_RATE: Final = 0.20
 
-# Anzeige-Einheit der Preise.
+# Anzeige-Einheiten.
 UNIT_CT_PER_KWH: Final = "ct/kWh"
+UNIT_EUR_PER_MONTH: Final = "EUR/Monat"
 
 # Konfigurationsoptionen
 CONF_INCLUDE_VAT: Final = "include_vat"

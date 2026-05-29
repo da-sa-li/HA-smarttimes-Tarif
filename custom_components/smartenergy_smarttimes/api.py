@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 import aiohttp
@@ -42,6 +42,20 @@ class MarketPrice:
 
 
 @dataclass(slots=True)
+class FeeEntry:
+    """Ein zeitlich gültiger Grundgebühr-Eintrag (brutto)."""
+
+    start: datetime
+    gross_value: float
+
+    def value(self, include_vat: bool) -> float:
+        """Grundgebühr je nach Brutto-/Netto-Einstellung."""
+        if include_vat:
+            return self.gross_value
+        return round(self.gross_value / (1.0 + VAT_RATE), 4)
+
+
+@dataclass(slots=True)
 class SmartTimesResult:
     """Ergebnis eines API-Abrufs."""
 
@@ -49,6 +63,8 @@ class SmartTimesResult:
     interval_minutes: int
     unit: str
     prices: list[MarketPrice]
+    basic_fees: list[FeeEntry] = field(default_factory=list)
+    basic_fee_unit: str | None = None
 
 
 class SmartTimesApiClient:
@@ -80,30 +96,42 @@ class SmartTimesApiClient:
 
     @staticmethod
     def _parse(payload: dict) -> SmartTimesResult:
-        """Wertet die JSON-Antwort der API aus."""
+        """Wertet die JSON-Antwort der API aus.
+
+        Die tatsächliche API liefert die Energiepreise verschachtelt unter
+        ``energyPrice`` mit Einträgen ``values`` / ``dateTimeFrom``. Das in der
+        Dokumentation gezeigte Format (``data`` / ``date`` auf oberster Ebene)
+        wird als Fallback weiterhin unterstützt.
+        """
         if not isinstance(payload, dict):
             raise SmartTimesApiError("Unerwartetes Antwortformat der API")
 
-        tariff = payload.get("tariff", "smartTIMES")
-        unit = payload.get("unit", "ct/kWh")
+        # Energiepreis-Block bestimmen (neues Format) bzw. auf oberste Ebene
+        # zurückfallen (dokumentiertes Format).
+        energy = payload.get("energyPrice")
+        if not isinstance(energy, dict):
+            energy = payload
+
+        tariff = payload.get("tariff") or energy.get("tariff") or "smartTIMES"
+        unit = energy.get("unit", "ct/kWh")
         try:
-            interval_minutes = int(payload.get("interval", 15))
+            interval_minutes = int(energy.get("interval", 15))
         except (TypeError, ValueError):
             interval_minutes = 15
 
-        raw_data = payload.get("data")
-        if not isinstance(raw_data, list) or not raw_data:
+        raw_values = energy.get("values")
+        if not isinstance(raw_values, list):
+            raw_values = energy.get("data")
+        if not isinstance(raw_values, list) or not raw_values:
             raise SmartTimesApiError("Die API hat keine Preisdaten geliefert")
 
         delta = timedelta(minutes=interval_minutes)
         prices: list[MarketPrice] = []
-        for entry in raw_data:
-            try:
-                start = SmartTimesApiClient._parse_date(entry["date"])
-                value = float(entry["value"])
-            except (KeyError, TypeError, ValueError) as err:
-                _LOGGER.debug("Überspringe ungültigen Preis-Eintrag %s: %s", entry, err)
+        for entry in raw_values:
+            parsed = SmartTimesApiClient._parse_entry(entry)
+            if parsed is None:
                 continue
+            start, value = parsed
             prices.append(
                 MarketPrice(
                     start=start,
@@ -116,16 +144,59 @@ class SmartTimesApiClient:
             raise SmartTimesApiError("Keine gültigen Preisdaten in der API-Antwort")
 
         prices.sort(key=lambda p: p.start)
+
+        basic_fees, basic_fee_unit = SmartTimesApiClient._parse_basic_fee(payload)
+
         return SmartTimesResult(
             tariff=tariff,
             interval_minutes=interval_minutes,
             unit=unit,
             prices=prices,
+            basic_fees=basic_fees,
+            basic_fee_unit=basic_fee_unit,
         )
 
     @staticmethod
+    def _parse_basic_fee(payload: dict) -> tuple[list[FeeEntry], str | None]:
+        """Liest den optionalen Grundgebühr-Block (``basicFee``) aus."""
+        basic = payload.get("basicFee")
+        if not isinstance(basic, dict):
+            return [], None
+
+        unit = basic.get("unit")
+        raw_values = basic.get("values")
+        if not isinstance(raw_values, list):
+            return [], unit
+
+        fees: list[FeeEntry] = []
+        for entry in raw_values:
+            parsed = SmartTimesApiClient._parse_entry(entry)
+            if parsed is None:
+                continue
+            start, value = parsed
+            fees.append(FeeEntry(start=start, gross_value=round(value, 4)))
+
+        fees.sort(key=lambda f: f.start)
+        return fees, unit
+
+    @staticmethod
+    def _parse_entry(entry: object) -> tuple[datetime, float] | None:
+        """Liest einen einzelnen ``{date(TimeFrom), value}``-Eintrag aus."""
+        if not isinstance(entry, dict):
+            return None
+        raw_date = entry.get("dateTimeFrom") or entry.get("date")
+        raw_value = entry.get("value")
+        if raw_date is None or raw_value is None:
+            return None
+        try:
+            return SmartTimesApiClient._parse_date(raw_date), float(raw_value)
+        except (TypeError, ValueError) as err:
+            _LOGGER.debug("Überspringe ungültigen Eintrag %s: %s", entry, err)
+            return None
+
+    @staticmethod
     def _parse_date(value: str) -> datetime:
-        """Wandelt das ``date``-Feld der API in ein zeitzonenbehaftetes datetime um.
+        """Wandelt ein Datums-Feld der API in ein zeitzonenbehaftetes datetime um.
 
         Laut Spezifikation handelt es sich um *lokale* Datum/Uhrzeit. Liefert die
         API keinen Zeitzonen-Offset, wird die in Home Assistant konfigurierte
