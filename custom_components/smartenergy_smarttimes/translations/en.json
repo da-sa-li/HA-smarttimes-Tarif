@@ -42,6 +42,14 @@
       },
       "basic_fee": {
         "name": "Basic fee"
+      },
+      "tariff_status": {
+        "name": "Tariff zone",
+        "state": {
+          "off_peak": "Off-Peak",
+          "shoulder": "Shoulder",
+          "peak": "Peak"
+        }
       }
     }
   }

@@ -18,6 +18,12 @@ VAT_RATE: Final = 0.20
 UNIT_CT_PER_KWH: Final = "ct/kWh"
 UNIT_EUR_PER_MONTH: Final = "EUR/Monat"
 
+# Tarifzonen-Status (stabile Werte für Automatisierungen).
+STATUS_OFF_PEAK: Final = "off_peak"
+STATUS_SHOULDER: Final = "shoulder"
+STATUS_PEAK: Final = "peak"
+TARIFF_STATUSES: Final = [STATUS_OFF_PEAK, STATUS_SHOULDER, STATUS_PEAK]
+
 # Konfigurationsoptionen
 CONF_INCLUDE_VAT: Final = "include_vat"
 DEFAULT_INCLUDE_VAT: Final = True

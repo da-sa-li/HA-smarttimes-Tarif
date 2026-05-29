@@ -12,6 +12,7 @@ verschieben.
 ## Funktionen
 
 - 🔌 **Aktueller Strompreis** der laufenden 15-Minuten-Tarifzone
+- 🚦 **Tarifzone** (Off-Peak / Shoulder / Peak) als eigener Status-Sensor
 - 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchstpreis von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
 - 🗓️ **Vollständige Preisvorschau** für heute und morgen als Attribute
@@ -95,9 +96,40 @@ Die Brutto-/Netto-Einstellung lässt sich später jederzeit über
 | `sensor.smartenergy_smarttimes_niedrigster_preis_heute`  | Günstigster Preis heute              |
 | `sensor.smartenergy_smarttimes_hochster_preis_heute`     | Teuerster Preis heute                |
 | `sensor.smartenergy_smarttimes_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
+| `sensor.smartenergy_smarttimes_tarifzone`               | Aktuelle Tarifzone (Off-Peak/Shoulder/Peak) |
 
 Die Preissensoren verwenden die Einheit **ct/kWh**, der Grundgebühr-Sensor
 **EUR/Monat**.
+
+### Sensor „Tarifzone"
+
+smartTIMES teilt den Tag in feste Preisstufen ein. Der Sensor leitet die
+aktuelle Zone direkt aus den Preisen ab: der **niedrigste** Preis ist
+`off_peak`, der **höchste** `peak`, dazwischenliegende Preise `shoulder`.
+
+Als Zustand liefert der Sensor die stabilen Werte `off_peak`, `shoulder` bzw.
+`peak` (gut für Automatisierungen); in der Oberfläche werden sie als
+*Off-Peak*, *Shoulder* und *Peak* angezeigt. Zusätzliche Attribute:
+
+| Attribut            | Beschreibung                                              |
+|---------------------|-----------------------------------------------------------|
+| `level_prices`      | Preis je Zone, z. B. `{off_peak: 9.77, shoulder: 11.24, peak: 13.68}` |
+| `next_status`       | Nächste abweichende Tarifzone                             |
+| `next_status_start` | Zeitpunkt, ab dem die nächste Zone gilt                   |
+| `vat_included`      | `true`, wenn die Preise brutto sind                       |
+
+```yaml
+automation:
+  - alias: "Waschmaschine nur in Off-Peak starten"
+    trigger:
+      - platform: state
+        entity_id: sensor.smartenergy_smarttimes_tarifzone
+        to: "off_peak"
+    action:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.waschmaschine
+```
 
 > Die genauen Entity-IDs können je nach Spracheinstellung abweichen.
 

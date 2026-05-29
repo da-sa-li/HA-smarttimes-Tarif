@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
@@ -19,7 +20,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
-from .const import DOMAIN, UNIT_CT_PER_KWH, UNIT_EUR_PER_MONTH
+from .const import (
+    DOMAIN,
+    TARIFF_STATUSES,
+    UNIT_CT_PER_KWH,
+    UNIT_EUR_PER_MONTH,
+)
 from .coordinator import SmartTimesCoordinator, SmartTimesData
 
 
@@ -28,7 +34,7 @@ class SmartTimesSensorDescription(SensorEntityDescription):
     """Beschreibung eines smartTIMES-Sensors."""
 
     value_fn: Callable[[SmartTimesData], StateType]
-    unit: str = UNIT_CT_PER_KWH
+    unit: str | None = UNIT_CT_PER_KWH
 
 
 def _current_value(data: SmartTimesData) -> StateType:
@@ -58,6 +64,10 @@ def _highest_today(data: SmartTimesData) -> StateType:
 
 def _basic_fee(data: SmartTimesData) -> StateType:
     return data.basic_fee()
+
+
+def _status(data: SmartTimesData) -> StateType:
+    return data.status()
 
 
 SENSORS: tuple[SmartTimesSensorDescription, ...] = (
@@ -97,6 +107,15 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
         unit=UNIT_EUR_PER_MONTH,
         suggested_display_precision=2,
         value_fn=_basic_fee,
+    ),
+    SmartTimesSensorDescription(
+        key="tariff_status",
+        translation_key="tariff_status",
+        icon="mdi:meter-electric",
+        unit=None,
+        device_class=SensorDeviceClass.ENUM,
+        options=list(TARIFF_STATUSES),
+        value_fn=_status,
     ),
 )
 
@@ -145,7 +164,9 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict | None:
-        """Zusätzliche Attribute – nur am Sensor für den aktuellen Preis."""
+        """Zusätzliche Attribute für ausgewählte Sensoren."""
+        if self.entity_description.key == "tariff_status":
+            return self._status_attributes()
         if self.entity_description.key != "current_price":
             return None
 
@@ -187,4 +208,15 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "prices_today": serialise(data.for_day(today)),
             "prices_tomorrow": serialise(data.for_day(tomorrow)),
             "prices": serialise(data.prices),
+        }
+
+    def _status_attributes(self) -> dict:
+        """Attribute des Tarifzonen-Sensors."""
+        data = self.coordinator.data
+        next_status, next_start = data.next_status_change()
+        return {
+            "vat_included": data.include_vat,
+            "level_prices": data.level_prices(),
+            "next_status": next_status,
+            "next_status_start": next_start.isoformat() if next_start else None,
         }
