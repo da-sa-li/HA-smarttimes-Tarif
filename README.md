@@ -91,15 +91,31 @@ Die Brutto-/Netto-Einstellung lässt sich später jederzeit über
 
 | Sensor                                          | Beschreibung                                |
 |-------------------------------------------------|---------------------------------------------|
-| `sensor.smartenergy_smarttimes_aktueller_preis` | Preis der aktuell gültigen Tarifzone        |
+| `sensor.smartenergy_smarttimes_aktueller_preis` | Preis der aktuell gültigen Tarifzone (ct/kWh) |
+| `sensor.smartenergy_smarttimes_aktueller_preis_eur_kwh` | Aktueller Preis in **EUR/kWh** (fürs Energie-Dashboard) |
 | `sensor.smartenergy_smarttimes_durchschnittspreis_heute` | Durchschnittspreis des heutigen Tages |
 | `sensor.smartenergy_smarttimes_niedrigster_preis_heute`  | Günstigster Preis heute              |
 | `sensor.smartenergy_smarttimes_hochster_preis_heute`     | Teuerster Preis heute                |
 | `sensor.smartenergy_smarttimes_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
 | `sensor.smartenergy_smarttimes_tarifzone`               | Aktuelle Tarifzone (Off-Peak/Shoulder/Peak) |
 
-Die Preissensoren verwenden die Einheit **ct/kWh**, der Grundgebühr-Sensor
-**EUR/Monat**.
+Die ct/kWh-Sensoren dienen der gut lesbaren Anzeige; der Grundgebühr-Sensor
+verwendet **EUR/Monat**.
+
+### Energie-Dashboard
+
+> ⚠️ Home Assistant rechnet `ct/kWh` **nicht** automatisch in EUR um – die
+> Einheit ist nur ein Anzeige-Text. Das Energie-Dashboard nimmt den Zahlenwert
+> des Preissensors direkt als **EUR/kWh**.
+
+Verwende daher fürs Energie-Dashboard den Sensor
+`sensor.smartenergy_smarttimes_aktueller_preis_eur_kwh` (Einheit **EUR/kWh**):
+
+Einstellungen → Dashboards → Energie → Netzverbrauch → *Entität mit aktuellem
+Preis verwenden* → diesen Sensor auswählen.
+
+Damit die Kosten dem entsprechen, was du tatsächlich zahlst, sollte die
+Brutto-Einstellung (inkl. USt.) aktiv sein – das ist die Voreinstellung.
 
 ### Sensor „Tarifzone"
 

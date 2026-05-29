@@ -24,6 +24,7 @@ from .const import (
     DOMAIN,
     TARIFF_STATUSES,
     UNIT_CT_PER_KWH,
+    UNIT_EUR_PER_KWH,
     UNIT_EUR_PER_MONTH,
 )
 from .coordinator import SmartTimesCoordinator, SmartTimesData
@@ -40,6 +41,11 @@ class SmartTimesSensorDescription(SensorEntityDescription):
 def _current_value(data: SmartTimesData) -> StateType:
     price = data.current()
     return data.value(price) if price else None
+
+
+def _current_value_eur(data: SmartTimesData) -> StateType:
+    price = data.current()
+    return round(data.value(price) / 100.0, 5) if price else None
 
 
 def _today_values(data: SmartTimesData) -> list[float]:
@@ -78,6 +84,15 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=3,
         value_fn=_current_value,
+    ),
+    SmartTimesSensorDescription(
+        key="current_price_eur",
+        translation_key="current_price_eur",
+        icon="mdi:currency-eur",
+        unit=UNIT_EUR_PER_KWH,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=5,
+        value_fn=_current_value_eur,
     ),
     SmartTimesSensorDescription(
         key="average_today",
