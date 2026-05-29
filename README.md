@@ -7,8 +7,7 @@ smartTIMES-Preis-API ab und stellt die viertelstündlichen Tarifpreise als
 Sensoren bereit – ideal, um Verbraucher automatisch in günstige Tarifzonen zu
 verschieben.
 
-> Diese Integration ist ein inoffizielles Community-Projekt und steht in keiner
-> Verbindung zur smartENERGY GmbH.
+> Diese Integration ist ein Community-Projekt und steht in keiner Verbindung zur smartENERGY oder der Energie Steiermark Kunden GmbH.
 
 ## Funktionen
 
