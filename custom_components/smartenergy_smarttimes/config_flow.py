@@ -18,8 +18,10 @@ from homeassistant.helpers import selector
 
 from .api import SmartTimesApiClient, SmartTimesApiError
 from .const import (
+    CONF_CHEAP_HOURS,
     CONF_GRID_ZONE,
     CONF_INCLUDE_VAT,
+    DEFAULT_CHEAP_HOURS,
     DEFAULT_GRID_ZONE,
     DEFAULT_INCLUDE_VAT,
     DOMAIN,
@@ -44,7 +46,20 @@ def _grid_zone_selector() -> selector.SelectSelector:
     )
 
 
-def _schema(include_vat: bool, grid_zone: str) -> vol.Schema:
+def _cheap_hours_selector() -> selector.NumberSelector:
+    """Eingabefeld für die Anzahl günstiger Stunden pro Tag."""
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=0.25,
+            max=24,
+            step=0.25,
+            unit_of_measurement="h",
+            mode=selector.NumberSelectorMode.BOX,
+        )
+    )
+
+
+def _schema(include_vat: bool, grid_zone: str, cheap_hours: float) -> vol.Schema:
     """Gemeinsames Schema für Einrichtung und Optionen."""
     return vol.Schema(
         {
@@ -52,6 +67,9 @@ def _schema(include_vat: bool, grid_zone: str) -> vol.Schema:
             vol.Required(
                 CONF_GRID_ZONE, default=grid_zone
             ): _grid_zone_selector(),
+            vol.Required(
+                CONF_CHEAP_HOURS, default=cheap_hours
+            ): _cheap_hours_selector(),
         }
     )
 
@@ -90,12 +108,17 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_GRID_ZONE: user_input.get(
                             CONF_GRID_ZONE, DEFAULT_GRID_ZONE
                         ),
+                        CONF_CHEAP_HOURS: user_input.get(
+                            CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS
+                        ),
                     },
                 )
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_schema(DEFAULT_INCLUDE_VAT, DEFAULT_GRID_ZONE),
+            data_schema=_schema(
+                DEFAULT_INCLUDE_VAT, DEFAULT_GRID_ZONE, DEFAULT_CHEAP_HOURS
+            ),
             errors=errors,
         )
 
@@ -124,5 +147,6 @@ class SmartTimesOptionsFlow(OptionsFlow):
             data_schema=_schema(
                 options.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
                 options.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE),
+                options.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS),
             ),
         )

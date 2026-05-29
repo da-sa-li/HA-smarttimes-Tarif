@@ -14,12 +14,10 @@ from homeassistant.util import dt as dt_util
 from .api import MarketPrice, SmartTimesApiClient, SmartTimesApiError, SmartTimesResult
 from .api import FeeEntry
 from .const import (
+    DEFAULT_CHEAP_HOURS,
     DOMAIN,
     MIN_FETCH_INTERVAL_MINUTES,
     RECALC_INTERVAL_MINUTES,
-    STATUS_OFF_PEAK,
-    STATUS_PEAK,
-    STATUS_SHOULDER,
     VAT_RATE,
 )
 from .grid_fees import GridZone
@@ -43,6 +41,7 @@ class SmartTimesData:
     basic_fees: list[FeeEntry] = field(default_factory=list)
     basic_fee_unit: str | None = None
     grid_zone: GridZone | None = None
+    cheap_hours: float = DEFAULT_CHEAP_HOURS
 
     def current(self, moment: datetime | None = None) -> MarketPrice | None:
         """Der für ``moment`` (Standard: jetzt) gültige Preis-Eintrag."""
@@ -121,65 +120,43 @@ class SmartTimesData:
         entry = applicable[-1] if applicable else self.basic_fees[0]
         return entry.value(self.include_vat)
 
-    def price_levels(self) -> list[float]:
-        """Sortierte, eindeutige Brutto-Preisstufen über alle vorliegenden Daten.
+    def _cheap_count(self) -> int:
+        """Anzahl der als günstig zu markierenden Intervalle pro Tag."""
+        if self.interval_minutes <= 0:
+            return 1
+        per_hour = 60 / self.interval_minutes
+        return max(1, round(self.cheap_hours * per_hour))
 
-        smartTIMES teilt den Tag in feste Preisstufen (Tarifzonen) ein – über
-        die vorliegenden Tage ergeben sich daraus die gültigen Stufen.
+    def _cheap_starts(self, day) -> set[datetime]:
+        """Startzeiten der ``cheap_hours`` günstigsten Intervalle eines Tages.
+
+        Es werden exakt so viele Intervalle gewählt, wie ``cheap_hours`` ergibt
+        (Gleichstand wird zugunsten der früheren Uhrzeit aufgelöst), damit die
+        markierte Dauer vorhersehbar bleibt.
         """
-        return sorted({round(p.gross_ct_per_kwh, 3) for p in self.prices})
+        prices = self.for_day(day)
+        if not prices:
+            return set()
+        ranked = sorted(prices, key=lambda p: (self.all_in_value(p), p.start))
+        count = min(self._cheap_count(), len(ranked))
+        return {p.start for p in ranked[:count]}
 
-    def classify(self, gross_value: float) -> str | None:
-        """Ordnet einen Bruttopreis einer Tarifzone zu."""
-        levels = self.price_levels()
-        if not levels:
+    def is_cheap(self, price: MarketPrice) -> bool:
+        """Ob ein Intervall zu den günstigsten Stunden seines Tages zählt."""
+        day = dt_util.as_local(price.start).date()
+        return price.start in self._cheap_starts(day)
+
+    def cheap_intervals(self, day) -> list[MarketPrice]:
+        """Die günstigsten Intervalle eines Tages (nach Gesamtkosten), chronologisch."""
+        starts = self._cheap_starts(day)
+        return [price for price in self.for_day(day) if price.start in starts]
+
+    def cheap_cutoff(self, day) -> float | None:
+        """Höchster Gesamtpreis (ct/kWh) unter den günstigen Intervallen des Tages."""
+        intervals = self.cheap_intervals(day)
+        if not intervals:
             return None
-        eps = 1e-6
-        if gross_value <= levels[0] + eps:
-            return STATUS_OFF_PEAK
-        if gross_value >= levels[-1] - eps:
-            return STATUS_PEAK
-        return STATUS_SHOULDER
-
-    def status(self, moment: datetime | None = None) -> str | None:
-        """Die aktuell gültige Tarifzone (Off-Peak/Shoulder/Peak)."""
-        price = self.current(moment)
-        if price is None:
-            return None
-        return self.classify(price.gross_ct_per_kwh)
-
-    def _display(self, gross_value: float) -> float:
-        """Bruttopreis gemäß Brutto-/Netto-Einstellung umrechnen."""
-        if self.include_vat:
-            return round(gross_value, 4)
-        return round(gross_value / (1.0 + VAT_RATE), 4)
-
-    def level_prices(self) -> dict[str, float]:
-        """Zuordnung Tarifzone -> Preis (gemäß Brutto-/Netto-Einstellung)."""
-        levels = self.price_levels()
-        if not levels:
-            return {}
-        result = {
-            STATUS_OFF_PEAK: self._display(levels[0]),
-            STATUS_PEAK: self._display(levels[-1]),
-        }
-        if len(levels) >= 3:
-            result[STATUS_SHOULDER] = self._display(levels[len(levels) // 2])
-        return result
-
-    def next_status_change(
-        self, moment: datetime | None = None
-    ) -> tuple[str | None, datetime | None]:
-        """Nächste abweichende Tarifzone und deren Startzeitpunkt."""
-        moment = moment or dt_util.now()
-        current = self.status(moment)
-        for price in self.prices:
-            if price.start <= moment:
-                continue
-            status = self.classify(price.gross_ct_per_kwh)
-            if status != current:
-                return status, price.start
-        return None, None
+        return max(self.all_in_value(p) for p in intervals)
 
 
 class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
@@ -198,6 +175,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         client: SmartTimesApiClient,
         include_vat: bool,
         grid_zone: GridZone | None = None,
+        cheap_hours: float = DEFAULT_CHEAP_HOURS,
     ) -> None:
         super().__init__(
             hass,
@@ -209,6 +187,7 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         self._client = client
         self._include_vat = include_vat
         self._grid_zone = grid_zone
+        self._cheap_hours = cheap_hours
         self._last_fetch: datetime | None = None
         self._last_result: SmartTimesResult | None = None
 
@@ -257,4 +236,5 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             basic_fees=result.basic_fees,
             basic_fee_unit=result.basic_fee_unit,
             grid_zone=self._grid_zone,
+            cheap_hours=self._cheap_hours,
         )

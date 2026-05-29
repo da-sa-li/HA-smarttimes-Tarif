@@ -9,15 +9,17 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import SmartTimesApiClient
 from .const import (
+    CONF_CHEAP_HOURS,
     CONF_GRID_ZONE,
     CONF_INCLUDE_VAT,
+    DEFAULT_CHEAP_HOURS,
     DEFAULT_GRID_ZONE,
     DEFAULT_INCLUDE_VAT,
 )
 from .coordinator import SmartTimesCoordinator
 from .grid_fees import get_zone
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 type SmartTimesConfigEntry = ConfigEntry[SmartTimesCoordinator]
 
@@ -33,8 +35,11 @@ async def async_setup_entry(
         entry.data.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
     )
     grid_zone = get_zone(entry.options.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE))
+    cheap_hours = entry.options.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS)
 
-    coordinator = SmartTimesCoordinator(hass, entry, client, include_vat, grid_zone)
+    coordinator = SmartTimesCoordinator(
+        hass, entry, client, include_vat, grid_zone, cheap_hours
+    )
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator

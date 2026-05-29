@@ -19,12 +19,6 @@ UNIT_CT_PER_KWH: Final = "ct/kWh"
 UNIT_EUR_PER_KWH: Final = "EUR/kWh"
 UNIT_EUR_PER_MONTH: Final = "EUR/Monat"
 
-# Tarifzonen-Status (stabile Werte für Automatisierungen).
-STATUS_OFF_PEAK: Final = "off_peak"
-STATUS_SHOULDER: Final = "shoulder"
-STATUS_PEAK: Final = "peak"
-TARIFF_STATUSES: Final = [STATUS_OFF_PEAK, STATUS_SHOULDER, STATUS_PEAK]
-
 # Konfigurationsoptionen
 CONF_INCLUDE_VAT: Final = "include_vat"
 DEFAULT_INCLUDE_VAT: Final = True
@@ -33,6 +27,11 @@ DEFAULT_INCLUDE_VAT: Final = True
 CONF_GRID_ZONE: Final = "grid_zone"
 GRID_ZONE_NONE: Final = "none"
 DEFAULT_GRID_ZONE: Final = GRID_ZONE_NONE
+
+# Anzahl der günstigsten Stunden pro Tag (nach Gesamtkosten), die der
+# Binary-Sensor "Günstige Stunde" als günstig markiert.
+CONF_CHEAP_HOURS: Final = "cheap_hours"
+DEFAULT_CHEAP_HOURS: Final = 4.0
 
 # Wie oft der Koordinator die Entitäten neu berechnet (aktueller Preis).
 # Die eigentlichen API-Aufrufe werden intern stärker gedrosselt
