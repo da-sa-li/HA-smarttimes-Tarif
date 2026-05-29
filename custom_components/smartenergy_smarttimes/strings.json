@@ -6,10 +6,12 @@
         "description": "Ruft die smartTIMES-Tarifpreise von smartENERGY ab. Es ist kein API-Schlüssel erforderlich.",
         "data": {
           "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
-          "grid_zone": "Netzgebiet (für die Netzentgelte)"
+          "grid_zone": "Netzgebiet (für die Netzentgelte)",
+          "cheap_hours": "Günstige Stunden pro Tag"
         },
         "data_description": {
-          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
+          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg.",
+          "cheap_hours": "Wie viele Stunden pro Tag der Binary-Sensor „Günstige Stunde“ (nach Gesamtkosten) als günstig markiert."
         }
       }
     },
@@ -26,10 +28,12 @@
         "title": "smartTIMES Optionen",
         "data": {
           "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
-          "grid_zone": "Netzgebiet (für die Netzentgelte)"
+          "grid_zone": "Netzgebiet (für die Netzentgelte)",
+          "cheap_hours": "Günstige Stunden pro Tag"
         },
         "data_description": {
-          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
+          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg.",
+          "cheap_hours": "Wie viele Stunden pro Tag der Binary-Sensor „Günstige Stunde“ (nach Gesamtkosten) als günstig markiert."
         }
       }
     }
@@ -64,24 +68,21 @@
         "name": "Gesamtpreis (EUR/kWh)"
       },
       "average_today": {
-        "name": "Durchschnittspreis heute"
+        "name": "Durchschnittlicher Gesamtpreis heute"
       },
       "lowest_today": {
-        "name": "Niedrigster Preis heute"
+        "name": "Niedrigster Gesamtpreis heute"
       },
       "highest_today": {
-        "name": "Höchster Preis heute"
+        "name": "Höchster Gesamtpreis heute"
       },
       "basic_fee": {
         "name": "Grundgebühr"
-      },
-      "tariff_status": {
-        "name": "Tarifzone",
-        "state": {
-          "off_peak": "Off-Peak",
-          "shoulder": "Shoulder",
-          "peak": "Peak"
-        }
+      }
+    },
+    "binary_sensor": {
+      "cheap_hour": {
+        "name": "Günstige Stunde"
       }
     }
   }

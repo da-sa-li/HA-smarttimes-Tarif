@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from homeassistant.components.sensor import (
-    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
@@ -22,7 +21,6 @@ from homeassistant.util import dt as dt_util
 from . import SmartTimesConfigEntry
 from .const import (
     DOMAIN,
-    TARIFF_STATUSES,
     UNIT_CT_PER_KWH,
     UNIT_EUR_PER_KWH,
     UNIT_EUR_PER_MONTH,
@@ -40,7 +38,27 @@ class SmartTimesSensorDescription(SensorEntityDescription):
     unit: str | None = UNIT_CT_PER_KWH
 
 
+def _stats(values: list[float]) -> tuple[StateType, StateType, StateType]:
+    """(Durchschnitt, Minimum, Maximum) einer Werteliste."""
+    if not values:
+        return None, None, None
+    return round(sum(values) / len(values), 4), min(values), max(values)
+
+
+def _today_allin_values(data: SmartTimesData) -> list[float]:
+    """Gesamtkosten (ct/kWh) aller heutigen Intervalle."""
+    today = dt_util.now().date()
+    return [data.all_in_value(p) for p in data.for_day(today)]
+
+
+def _today_energy_values(data: SmartTimesData) -> list[float]:
+    """Arbeitspreise (ct/kWh) aller heutigen Intervalle."""
+    today = dt_util.now().date()
+    return [data.value(p) for p in data.for_day(today)]
+
+
 def _current_value(data: SmartTimesData) -> StateType:
+    """Reiner Arbeitspreis des aktuellen Intervalls."""
     price = data.current()
     return data.value(price) if price else None
 
@@ -51,32 +69,20 @@ def _current_value_eur(data: SmartTimesData) -> StateType:
     return round(data.all_in_value(price) / 100.0, 5) if price else None
 
 
-def _today_values(data: SmartTimesData) -> list[float]:
-    today = dt_util.now().date()
-    return [data.value(p) for p in data.for_day(today)]
-
-
 def _average_today(data: SmartTimesData) -> StateType:
-    values = _today_values(data)
-    return round(sum(values) / len(values), 4) if values else None
+    return _stats(_today_allin_values(data))[0]
 
 
 def _lowest_today(data: SmartTimesData) -> StateType:
-    values = _today_values(data)
-    return min(values) if values else None
+    return _stats(_today_allin_values(data))[1]
 
 
 def _highest_today(data: SmartTimesData) -> StateType:
-    values = _today_values(data)
-    return max(values) if values else None
+    return _stats(_today_allin_values(data))[2]
 
 
 def _basic_fee(data: SmartTimesData) -> StateType:
     return data.basic_fee()
-
-
-def _status(data: SmartTimesData) -> StateType:
-    return data.status()
 
 
 SENSORS: tuple[SmartTimesSensorDescription, ...] = (
@@ -126,15 +132,6 @@ SENSORS: tuple[SmartTimesSensorDescription, ...] = (
         suggested_display_precision=2,
         value_fn=_basic_fee,
     ),
-    SmartTimesSensorDescription(
-        key="tariff_status",
-        translation_key="tariff_status",
-        icon="mdi:meter-electric",
-        unit=None,
-        device_class=SensorDeviceClass.ENUM,
-        options=list(TARIFF_STATUSES),
-        value_fn=_status,
-    ),
 )
 
 
@@ -183,13 +180,14 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
     @property
     def extra_state_attributes(self) -> dict | None:
         """Zusätzliche Attribute für ausgewählte Sensoren."""
-        if self.entity_description.key == "tariff_status":
-            return self._status_attributes()
         if self.entity_description.key == "current_price_eur":
             return self._all_in_attributes()
-        if self.entity_description.key != "working_price":
-            return None
+        if self.entity_description.key == "working_price":
+            return self._working_price_attributes()
+        return None
 
+    def _working_price_attributes(self) -> dict:
+        """Energiepreis-Vorschau und -Kennzahlen (zur Information)."""
         data = self.coordinator.data
         now = dt_util.now()
         today = now.date()
@@ -208,6 +206,7 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
         current = data.current(now)
         future = [p for p in data.prices if p.start > now]
         next_price = future[0] if future else None
+        avg, low, high = _stats(_today_energy_values(data))
 
         return {
             "tariff": data.tariff,
@@ -220,9 +219,9 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "next_price_start": (
                 next_price.start.isoformat() if next_price else None
             ),
-            "average_today": _average_today(data),
-            "lowest_today": _lowest_today(data),
-            "highest_today": _highest_today(data),
+            "average_today": avg,
+            "lowest_today": low,
+            "highest_today": high,
             "basic_fee": data.basic_fee(),
             "basic_fee_unit": data.basic_fee_unit,
             "prices_today": serialise(data.for_day(today)),
@@ -230,27 +229,39 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             "prices": serialise(data.prices),
         }
 
-    def _status_attributes(self) -> dict:
-        """Attribute des Tarifzonen-Sensors."""
-        data = self.coordinator.data
-        next_status, next_start = data.next_status_change()
-        return {
-            "vat_included": data.include_vat,
-            "level_prices": data.level_prices(),
-            "next_status": next_status,
-            "next_status_start": next_start.isoformat() if next_start else None,
-        }
-
     def _all_in_attributes(self) -> dict:
-        """Aufschlüsselung des Gesamtpreises (Arbeitspreis + Nebenkosten)."""
+        """Gesamtkosten-Aufschlüsselung, -Vorschau und -Kennzahlen.
+
+        Dieser Sensor reicht allein für Diagramme und Automatisierungen auf
+        Basis der gesamten variablen Kosten.
+        """
         data = self.coordinator.data
+        now = dt_util.now()
+        today = now.date()
+        tomorrow = today + timedelta(days=1)
+
         price = data.current()
         # Nebenkosten anhand des aktuellen Intervalls bestimmen, damit die
         # Aufschlüsselung exakt zum Sensorwert passt.
-        moment = price.start if price else dt_util.now()
+        moment = price.start if price else now
         working_price = data.value(price) if price else None
         surcharges_total = data.surcharges_total(moment)
         zone = data.grid_zone
+
+        def serialise(prices) -> list[dict]:
+            return [
+                {
+                    "start": p.start.isoformat(),
+                    "end": p.end.isoformat(),
+                    "price": data.all_in_value(p),
+                }
+                for p in prices
+            ]
+
+        future = [p for p in data.prices if p.start > now]
+        next_price = future[0] if future else None
+        avg, low, high = _stats(_today_allin_values(data))
+
         return {
             "vat_included": data.include_vat,
             "vat_rate": VAT_RATE,
@@ -265,4 +276,14 @@ class SmartTimesSensor(CoordinatorEntity[SmartTimesCoordinator], SensorEntity):
             ),
             "grid_zone": zone.name if zone else None,
             "snap_active": is_snap(moment) if zone else False,
+            "average_today": avg,
+            "lowest_today": low,
+            "highest_today": high,
+            "next_price": data.all_in_value(next_price) if next_price else None,
+            "next_price_start": (
+                next_price.start.isoformat() if next_price else None
+            ),
+            "prices_today": serialise(data.for_day(today)),
+            "prices_tomorrow": serialise(data.for_day(tomorrow)),
+            "prices": serialise(data.prices),
         }

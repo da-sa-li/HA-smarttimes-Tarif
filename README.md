@@ -12,13 +12,14 @@ verschieben.
 ## Funktionen
 
 - 🔌 **Arbeitspreis** der laufenden 15-Minuten-Tarifzone (ct/kWh)
-- 💶 **Gesamtpreis** in EUR/kWh inkl. Nebenkosten – fürs Energie-Dashboard
+- 💶 **Gesamtpreis** in EUR/kWh inkl. aller variablen Nebenkosten – fürs Energie-Dashboard
 - 🧾 **Variable Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe (mit
   befristeter Senkung bis Ende 2026), Erneuerbaren-Förderbeitrag und
   netzgebietsabhängige **Netzentgelte** inkl. **Sommer-Nieder-Arbeitspreis
   (SNAP)** für Netzebene 7
-- 🚦 **Tarifzone** (Off-Peak / Shoulder / Peak) als eigener Status-Sensor
-- 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchstpreis von heute
+- 🟢 **Günstige Stunde** als Binary-Sensor – `on` in den günstigsten Stunden des
+  Tages (nach **Gesamtkosten**), ideal zum Schalten von Boiler & Co.
+- 📊 **Tageskennzahlen**: Durchschnitts-, Niedrigst- und Höchst-**Gesamtpreis** von heute
 - 💰 **Grundgebühr** (Monatspauschale) als eigener Sensor
 - 🗓️ **Vollständige Preisvorschau** für heute und morgen als Attribute
   (z. B. für Diagramme oder Automatisierungen)
@@ -90,33 +91,42 @@ aufgebaut:
 3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
    Netzgebiet“ lässt die Netzentgelte weg.
+5. **Günstige Stunden pro Tag** festlegen (Voreinstellung 4 h) – so viele der
+   günstigsten Stunden markiert der Binary-Sensor „Günstige Stunde“.
 
-Beide Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
+Alle Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
 Integration ändern.
 
 ## Sensoren
 
-| Sensor                                          | Beschreibung                                |
+| Sensor / Entität                                | Beschreibung                                |
 |-------------------------------------------------|---------------------------------------------|
 | `sensor.smartenergy_smarttimes_arbeitspreis`    | **Reiner Arbeitspreis** der aktuell gültigen Tarifzone (ct/kWh) |
-| `sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh` | **Gesamtpreis inkl. Nebenkosten** in **EUR/kWh** (fürs Energie-Dashboard) |
-| `sensor.smartenergy_smarttimes_durchschnittspreis_heute` | Durchschnittlicher Arbeitspreis des heutigen Tages |
-| `sensor.smartenergy_smarttimes_niedrigster_preis_heute`  | Günstigster Arbeitspreis heute       |
-| `sensor.smartenergy_smarttimes_hochster_preis_heute`     | Teuerster Arbeitspreis heute         |
+| `sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh` | **Gesamtpreis inkl. aller variablen Nebenkosten** in **EUR/kWh** (fürs Energie-Dashboard) |
+| `binary_sensor.smartenergy_smarttimes_gunstige_stunde` | `on` in den günstigsten Stunden des Tages (nach **Gesamtkosten**) |
+| `sensor.smartenergy_smarttimes_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (ct/kWh) |
+| `sensor.smartenergy_smarttimes_niedrigster_gesamtpreis_heute`  | Günstigster **Gesamtpreis** heute (ct/kWh) |
+| `sensor.smartenergy_smarttimes_hochster_gesamtpreis_heute`     | Teuerster **Gesamtpreis** heute (ct/kWh) |
 | `sensor.smartenergy_smarttimes_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
-| `sensor.smartenergy_smarttimes_tarifzone`               | Aktuelle Tarifzone (Off-Peak/Shoulder/Peak) |
 
 Der **Arbeitspreis**-Sensor (ct/kWh) enthält ausschließlich den Energiepreis und
 dient der gut lesbaren Anzeige bzw. dem Vergleich der Tarifzonen. Der
-**Gesamtpreis**-Sensor (EUR/kWh) rechnet zusätzlich die Nebenkosten (Steuern und
-Abgaben) ein und eignet sich daher fürs Energie-Dashboard. Der
-Grundgebühr-Sensor verwendet **EUR/Monat**.
+**Gesamtpreis**-Sensor (EUR/kWh) rechnet zusätzlich alle variablen Nebenkosten
+(Steuern, Abgaben, Netzentgelte) ein und eignet sich daher fürs Energie-Dashboard
+und als Entscheidungsgrundlage fürs Schalten. Die Tageskennzahlen beziehen sich
+ebenfalls auf den **Gesamtpreis** (ct/kWh). Der Grundgebühr-Sensor verwendet
+**EUR/Monat**.
 
-> ℹ️ **Hinweis für Updates von einer älteren Version:** Der frühere Sensor
-> `…_aktueller_preis` heißt jetzt `…_arbeitspreis`. Bestehende Installationen
-> behalten ihre einmal vergebene Entity-ID für den EUR/kWh-Sensor
-> (`…_aktueller_preis_eur_kwh`); inhaltlich enthält dieser nun den Gesamtpreis.
-> Passe ggf. Dashboards und Automatisierungen an.
+> ℹ️ **Hinweis für Updates von einer älteren Version:**
+> - Der Tarifzonen-Sensor (`…_tarifzone`, Off-Peak/Shoulder/Peak) wurde durch
+>   den Binary-Sensor **„Günstige Stunde“** (`…_gunstige_stunde`) ersetzt, weil
+>   die Tarifzone (nur Energiepreis) durch den zeitvariablen SNAP nicht mehr zum
+>   Gesamtkosten-Minimum passte.
+> - Die Tageskennzahlen (Ø/min/max) beziehen sich jetzt auf den **Gesamtpreis**
+>   statt nur den Arbeitspreis.
+> - Bestehende Installationen behalten ihre einmal vergebenen Entity-IDs; passe
+>   ggf. Dashboards und Automatisierungen an. Der alte Tarifzonen-Sensor wird
+>   „unavailable“ und kann entfernt werden.
 
 ### Energie-Dashboard
 
@@ -188,36 +198,48 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 | `total_ct_kwh`            | Gesamtpreis (ct/kWh) – entspricht dem Sensorwert × 100 |
 | `grid_zone`               | Gewähltes Netzgebiet (oder `null`)                    |
 | `snap_active`             | `true`, wenn gerade der SNAP gilt                     |
+| `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen (Gesamtpreis, ct/kWh) |
+| `next_price` / `next_price_start` | Gesamtpreis und Beginn des nächsten Intervalls |
+| `prices_today` / `prices_tomorrow` / `prices` | Vollständige **Gesamtpreis**-Vorschau (`start`, `end`, `price`) – gut für Diagramme |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz          |
 
-### Sensor „Tarifzone"
+### Binary-Sensor „Günstige Stunde"
 
-smartTIMES teilt den Tag in feste Preisstufen ein. Der Sensor leitet die
-aktuelle Zone direkt aus den Preisen ab: der **niedrigste** Preis ist
-`off_peak`, der **höchste** `peak`, dazwischenliegende Preise `shoulder`.
+Statt fester Tarifzonen markiert dieser Sensor die **günstigsten Stunden des
+Tages nach Gesamtkosten** – also inklusive Netzentgelten und SNAP. Er ist `on`,
+solange das laufende Intervall zu den günstigsten `cheap_hours` (Standard 4 h)
+des Tages zählt. Bei Preisgleichheit werden die früheren Intervalle bevorzugt,
+damit die markierte Dauer vorhersehbar bleibt.
 
-Als Zustand liefert der Sensor die stabilen Werte `off_peak`, `shoulder` bzw.
-`peak` (gut für Automatisierungen); in der Oberfläche werden sie als
-*Off-Peak*, *Shoulder* und *Peak* angezeigt. Zusätzliche Attribute:
-
-| Attribut            | Beschreibung                                              |
-|---------------------|-----------------------------------------------------------|
-| `level_prices`      | Preis je Zone, z. B. `{off_peak: 9.77, shoulder: 11.24, peak: 13.68}` |
-| `next_status`       | Nächste abweichende Tarifzone                             |
-| `next_status_start` | Zeitpunkt, ab dem die nächste Zone gilt                   |
-| `vat_included`      | `true`, wenn die Preise brutto sind                       |
+| Attribut             | Beschreibung                                              |
+|----------------------|-----------------------------------------------------------|
+| `cheap_hours`        | Konfigurierte Anzahl günstiger Stunden pro Tag           |
+| `threshold_ct_kwh`   | Höchster Gesamtpreis unter den günstigen Intervallen     |
+| `current_price_ct_kwh` | Aktueller Gesamtpreis (ct/kWh)                         |
+| `next_cheap_start`   | Beginn des nächsten günstigen Intervalls                 |
+| `cheap_intervals`    | Liste der heutigen günstigen Intervalle (`start`, `end`, `price`) |
+| `vat_included`       | `true`, wenn brutto gerechnet wird                       |
 
 ```yaml
 automation:
-  - alias: "Waschmaschine nur in Off-Peak starten"
+  - alias: "Boiler in den günstigsten Stunden laufen lassen"
     trigger:
       - platform: state
-        entity_id: sensor.smartenergy_smarttimes_tarifzone
-        to: "off_peak"
+        entity_id: binary_sensor.smartenergy_smarttimes_gunstige_stunde
+        to: "on"
     action:
       - action: switch.turn_on
         target:
-          entity_id: switch.waschmaschine
+          entity_id: switch.boiler
+  - alias: "Boiler ausschalten, wenn nicht mehr günstig"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.smartenergy_smarttimes_gunstige_stunde
+        to: "off"
+    action:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.boiler
 ```
 
 > Die genauen Entity-IDs können je nach Spracheinstellung abweichen.
@@ -230,11 +252,11 @@ Der Sensor `Arbeitspreis` enthält zusätzlich umfangreiche Attribute:
 |---------------------|-----------------------------------------------------------|
 | `tariff`            | Tarifname laut API                                        |
 | `unit`              | Einheit der Preise                                        |
-| `interval_minutes`  | Länge einer Tarifzone in Minuten                          |
+| `interval_minutes`  | Länge eines Preisintervalls in Minuten                    |
 | `vat_included`      | `true`, wenn die Preise brutto (inkl. USt.) sind          |
-| `current_start` / `current_end` | Beginn/Ende der aktuellen Tarifzone           |
-| `next_price`        | Preis der nächsten Tarifzone                              |
-| `next_price_start`  | Beginn der nächsten Tarifzone                             |
+| `current_start` / `current_end` | Beginn/Ende des aktuellen Preisintervalls     |
+| `next_price`        | Arbeitspreis des nächsten Intervalls                      |
+| `next_price_start`  | Beginn des nächsten Intervalls                            |
 | `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen           |
 | `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit        |
 | `prices_today`      | Liste aller heutigen Preise (`start`, `end`, `price`)     |
@@ -243,15 +265,18 @@ Der Sensor `Arbeitspreis` enthält zusätzlich umfangreiche Attribute:
 
 ## Beispiele
 
-### Automatisierung: Gerät bei günstigem Preis einschalten
+### Automatisierung: Gerät unter einem Gesamtpreis-Schwellwert einschalten
+
+Alternativ zum Binary-Sensor „Günstige Stunde“ lässt sich auch direkt ein
+absoluter Schwellwert auf den **Gesamtpreis** (EUR/kWh) setzen:
 
 ```yaml
 automation:
-  - alias: "Boiler bei günstigem Strom einschalten"
+  - alias: "Boiler bei niedrigem Gesamtpreis einschalten"
     trigger:
       - platform: numeric_state
-        entity_id: sensor.smartenergy_smarttimes_arbeitspreis
-        below: 10            # ct/kWh
+        entity_id: sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh
+        below: 0.20          # EUR/kWh inkl. aller variablen Nebenkosten
     action:
       - action: switch.turn_on
         target:
@@ -266,11 +291,11 @@ der Preisverlauf darstellen:
 ```yaml
 type: custom:apexcharts-card
 header:
-  title: smartTIMES Preise
+  title: smartTIMES Gesamtpreis
   show: true
 series:
-  - entity: sensor.smartenergy_smarttimes_arbeitspreis
-    name: Preis
+  - entity: sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh
+    name: Gesamtpreis
     type: column
     data_generator: |
       return entity.attributes.prices.map(p => {
@@ -278,13 +303,17 @@ series:
       });
 ```
 
+> Die `prices`-Attribute des **Gesamtpreis**-Sensors enthalten die Gesamtkosten
+> je Intervall (ct/kWh); der **Arbeitspreis**-Sensor bietet dieselbe Struktur
+> für den reinen Energiepreis.
+
 ## Hinweise
 
 - Die smartTIMES-API gibt die Preise für den nächsten Tag typischerweise am
   Nachmittag bekannt. Vorher bleibt `prices_tomorrow` leer.
 - Die API wird höchstens alle 30 Minuten abgefragt; der Sensorwert für den
-  aktuellen Preis wird dennoch minütlich neu berechnet, damit der Wechsel der
-  Tarifzone sofort korrekt angezeigt wird.
+  aktuellen Preis wird dennoch minütlich neu berechnet, damit der Wechsel des
+  15-Minuten-Intervalls sofort korrekt angezeigt wird.
 
 ## Lizenz
 
