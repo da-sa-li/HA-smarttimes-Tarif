@@ -17,6 +17,10 @@ from .const import (
     DOMAIN,
     MIN_FETCH_INTERVAL_MINUTES,
     RECALC_INTERVAL_MINUTES,
+    STATUS_OFF_PEAK,
+    STATUS_PEAK,
+    STATUS_SHOULDER,
+    VAT_RATE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,6 +71,66 @@ class SmartTimesData:
         applicable = [f for f in self.basic_fees if f.start <= moment]
         entry = applicable[-1] if applicable else self.basic_fees[0]
         return entry.value(self.include_vat)
+
+    def price_levels(self) -> list[float]:
+        """Sortierte, eindeutige Brutto-Preisstufen über alle vorliegenden Daten.
+
+        smartTIMES teilt den Tag in feste Preisstufen (Tarifzonen) ein – über
+        die vorliegenden Tage ergeben sich daraus die gültigen Stufen.
+        """
+        return sorted({round(p.gross_ct_per_kwh, 3) for p in self.prices})
+
+    def classify(self, gross_value: float) -> str | None:
+        """Ordnet einen Bruttopreis einer Tarifzone zu."""
+        levels = self.price_levels()
+        if not levels:
+            return None
+        eps = 1e-6
+        if gross_value <= levels[0] + eps:
+            return STATUS_OFF_PEAK
+        if gross_value >= levels[-1] - eps:
+            return STATUS_PEAK
+        return STATUS_SHOULDER
+
+    def status(self, moment: datetime | None = None) -> str | None:
+        """Die aktuell gültige Tarifzone (Off-Peak/Shoulder/Peak)."""
+        price = self.current(moment)
+        if price is None:
+            return None
+        return self.classify(price.gross_ct_per_kwh)
+
+    def _display(self, gross_value: float) -> float:
+        """Bruttopreis gemäß Brutto-/Netto-Einstellung umrechnen."""
+        if self.include_vat:
+            return round(gross_value, 4)
+        return round(gross_value / (1.0 + VAT_RATE), 4)
+
+    def level_prices(self) -> dict[str, float]:
+        """Zuordnung Tarifzone -> Preis (gemäß Brutto-/Netto-Einstellung)."""
+        levels = self.price_levels()
+        if not levels:
+            return {}
+        result = {
+            STATUS_OFF_PEAK: self._display(levels[0]),
+            STATUS_PEAK: self._display(levels[-1]),
+        }
+        if len(levels) >= 3:
+            result[STATUS_SHOULDER] = self._display(levels[len(levels) // 2])
+        return result
+
+    def next_status_change(
+        self, moment: datetime | None = None
+    ) -> tuple[str | None, datetime | None]:
+        """Nächste abweichende Tarifzone und deren Startzeitpunkt."""
+        moment = moment or dt_util.now()
+        current = self.status(moment)
+        for price in self.prices:
+            if price.start <= moment:
+                continue
+            status = self.classify(price.gross_ct_per_kwh)
+            if status != current:
+                return status, price.start
+        return None, None
 
 
 class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):

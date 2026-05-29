@@ -42,6 +42,14 @@
       },
       "basic_fee": {
         "name": "Grundgebühr"
+      },
+      "tariff_status": {
+        "name": "Tarifzone",
+        "state": {
+          "off_peak": "Off-Peak",
+          "shoulder": "Shoulder",
+          "peak": "Peak"
+        }
       }
     }
   }
