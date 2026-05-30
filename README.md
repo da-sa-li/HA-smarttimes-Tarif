@@ -91,11 +91,24 @@ aufgebaut:
 3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
    Netzgebiet“ lässt die Netzentgelte weg.
-5. **Günstige Stunden pro Tag** festlegen (Voreinstellung 4 h) – so viele der
-   günstigsten Stunden markiert der Binary-Sensor „Günstige Stunde“.
 
-Alle Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
+Diese Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
 Integration ändern.
+
+### „Günstige Stunde“-Sensoren anlegen
+
+Die Binary-Sensoren „Günstige Stunde“ werden als **Untereinträge** angelegt – so
+kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
+(z. B. Boiler 4 h, Wallbox 8 h):
+
+1. Bei der Integration unter **smartENERGY smartTIMES** auf **Untereintrag
+   hinzufügen** (bzw. **Günstige-Stunde-Sensor hinzufügen**) klicken.
+2. Einen **Namen** (z. B. „Boiler“) und die **günstigen Stunden pro Tag** angeben.
+3. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
+
+Jeder Untereintrag erscheint als **eigenes Gerät** mit genau einem
+„Günstige Stunde“-Binary-Sensor und lässt sich später einzeln bearbeiten oder
+entfernen.
 
 ## Sensoren
 
@@ -103,7 +116,7 @@ Integration ändern.
 |-------------------------------------------------|---------------------------------------------|
 | `sensor.smartenergy_smarttimes_arbeitspreis`    | **Reiner Arbeitspreis** der aktuell gültigen Tarifzone (ct/kWh) |
 | `sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh` | **Gesamtpreis inkl. aller variablen Nebenkosten** in **EUR/kWh** (fürs Energie-Dashboard) |
-| `binary_sensor.smartenergy_smarttimes_gunstige_stunde` | `on` in den günstigsten Stunden des Tages (nach **Gesamtkosten**) |
+| `binary_sensor.<name>_gunstige_stunde` *(je Untereintrag)* | `on` in den günstigsten Stunden des Tages (nach **Gesamtkosten**); ein Sensor je angelegtem Untereintrag |
 | `sensor.smartenergy_smarttimes_durchschnittlicher_gesamtpreis_heute` | Durchschnittlicher **Gesamtpreis** heute (ct/kWh) |
 | `sensor.smartenergy_smarttimes_niedrigster_gesamtpreis_heute`  | Günstigster **Gesamtpreis** heute (ct/kWh) |
 | `sensor.smartenergy_smarttimes_hochster_gesamtpreis_heute`     | Teuerster **Gesamtpreis** heute (ct/kWh) |
@@ -203,14 +216,17 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 | `prices_today` / `prices_tomorrow` / `prices` | Vollständige **Gesamtpreis**-Vorschau (`start`, `end`, `price`) – gut für Diagramme |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz          |
 
-### Binary-Sensor „Günstige Stunde"
+### Binary-Sensor „Günstige Stunde“
 
 Statt fester Tarifzonen markiert dieser Sensor die **günstigsten Stunden des
 Tages nach Gesamtkosten** – also inklusive Netzentgelten und SNAP. Er ist `on`,
-solange das laufende Intervall zu den günstigsten `cheap_hours` (Standard 4 h)
-des Tages zählt. Teilen sich am Schwellwert mehrere Intervalle denselben Preis,
-werden **alle** davon markiert – auch wenn dadurch mehr Stunden als `cheap_hours`
-zusammenkommen. So bleibt keine gleich günstige Stunde unberücksichtigt.
+solange das laufende Intervall zu den günstigsten Stunden des Tages zählt. Wie
+viele Stunden das sind, legst du je Sensor über die `cheap_hours` des jeweiligen
+Untereintrags fest (siehe Abschnitt **„Günstige Stunde“-Sensoren anlegen**) – so
+kann z. B. der Boiler-Sensor 4 h und der Wallbox-Sensor 8 h verwenden. Teilen
+sich am Schwellwert mehrere Intervalle denselben Preis, werden **alle** davon
+markiert – auch wenn dadurch mehr Stunden als konfiguriert zusammenkommen. So
+bleibt keine gleich günstige Stunde unberücksichtigt.
 
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
@@ -226,7 +242,7 @@ automation:
   - alias: "Boiler in den günstigsten Stunden laufen lassen"
     trigger:
       - platform: state
-        entity_id: binary_sensor.smartenergy_smarttimes_gunstige_stunde
+        entity_id: binary_sensor.boiler_gunstige_stunde
         to: "on"
     action:
       - action: switch.turn_on
@@ -235,7 +251,7 @@ automation:
   - alias: "Boiler ausschalten, wenn nicht mehr günstig"
     trigger:
       - platform: state
-        entity_id: binary_sensor.smartenergy_smarttimes_gunstige_stunde
+        entity_id: binary_sensor.boiler_gunstige_stunde
         to: "off"
     action:
       - action: switch.turn_off

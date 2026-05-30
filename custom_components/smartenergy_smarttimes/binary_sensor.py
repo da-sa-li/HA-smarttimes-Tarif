@@ -1,14 +1,16 @@
-"""Binary-Sensor „Günstige Stunde" für die smartTIMES Integration.
+"""Binary-Sensoren „Günstige Stunde" für die smartTIMES Integration.
 
-Markiert, ob das aktuelle Intervall zu den günstigsten Stunden des Tages zählt –
-gemessen an den **gesamten variablen Kosten** (Arbeitspreis + Abgaben +
-Netzentgelte inkl. SNAP). Ideal, um z. B. einen Elektroboiler genau dann laufen
-zu lassen, wenn der Strom insgesamt am günstigsten ist.
+Jeder Sensor markiert, ob das aktuelle Intervall zu den günstigsten Stunden des
+Tages zählt – gemessen an den **gesamten variablen Kosten** (Arbeitspreis +
+Abgaben + Netzentgelte inkl. SNAP). Die Anzahl günstiger Stunden wird je
+Untereintrag (Config Subentry) festgelegt, sodass pro Verbraucher ein eigener
+Sensor mit eigener Stundenzahl möglich ist (z. B. Boiler 4 h, Wallbox 8 h).
 """
 
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -17,7 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
-from .const import DOMAIN, UNIT_CT_PER_KWH
+from .const import CONF_CHEAP_HOURS, DOMAIN, SUBENTRY_TYPE_CHEAP_HOUR, UNIT_CT_PER_KWH
 from .coordinator import SmartTimesCoordinator
 
 
@@ -26,9 +28,15 @@ async def async_setup_entry(
     entry: SmartTimesConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Richtet den „Günstige Stunde"-Binary-Sensor ein."""
+    """Richtet je Untereintrag einen „Günstige Stunde"-Binary-Sensor ein."""
     coordinator = entry.runtime_data
-    async_add_entities([CheapHourBinarySensor(coordinator, entry)])
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_TYPE_CHEAP_HOUR:
+            continue
+        async_add_entities(
+            [CheapHourBinarySensor(coordinator, subentry)],
+            config_subentry_id=subentry.subentry_id,
+        )
 
 
 class CheapHourBinarySensor(
@@ -43,15 +51,16 @@ class CheapHourBinarySensor(
     def __init__(
         self,
         coordinator: SmartTimesCoordinator,
-        entry: SmartTimesConfigEntry,
+        subentry: ConfigSubentry,
     ) -> None:
         super().__init__(coordinator)
-        self._attr_unique_id = f"{entry.entry_id}_cheap_hour"
+        self._cheap_hours: float = subentry.data[CONF_CHEAP_HOURS]
+        self._attr_unique_id = f"{subentry.subentry_id}_cheap_hour"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="smartENERGY smartTIMES",
+            identifiers={(DOMAIN, subentry.subentry_id)},
+            name=subentry.title,
             manufacturer="smartENERGY",
-            model="smartTIMES",
+            model="smartTIMES Günstige Stunde",
             entry_type=DeviceEntryType.SERVICE,
             configuration_url="https://www.smartenergy.at/api-schnittstellen-smarttimes",
         )
@@ -63,7 +72,7 @@ class CheapHourBinarySensor(
         price = data.current()
         if price is None:
             return None
-        return data.is_cheap(price)
+        return data.is_cheap(price, self._cheap_hours)
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -72,7 +81,7 @@ class CheapHourBinarySensor(
         now = dt_util.now()
         today = now.date()
         price = data.current()
-        cheap = data.cheap_intervals(today)
+        cheap = data.cheap_intervals(today, self._cheap_hours)
         upcoming = [p for p in cheap if p.start > now]
         next_cheap = upcoming[0] if upcoming else None
 
@@ -80,8 +89,8 @@ class CheapHourBinarySensor(
             return data.all_in_value(price) if price else None
 
         return {
-            "cheap_hours": data.cheap_hours,
-            "threshold_ct_kwh": data.cheap_cutoff(today),
+            "cheap_hours": self._cheap_hours,
+            "threshold_ct_kwh": data.cheap_cutoff(today, self._cheap_hours),
             "current_price_ct_kwh": current_price(),
             "unit_ct": UNIT_CT_PER_KWH,
             "vat_included": data.include_vat,
