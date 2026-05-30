@@ -199,7 +199,16 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                 )
         return self.async_show_form(
             step_id="user",
-            data_schema=_cheap_hour_schema(),
+            data_schema=_cheap_hour_schema(
+                # Bei einem Fehler die bereits eingegebenen Werte erhalten,
+                # statt das Formular auf die Defaults zurückzusetzen.
+                name=user_input.get(CONF_NAME) if user_input else None,
+                cheap_hours=(
+                    user_input.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS)
+                    if user_input
+                    else DEFAULT_CHEAP_HOURS
+                ),
+            ),
             errors=errors,
         )
 
@@ -220,12 +229,21 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
                     title=name,
                     data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
                 )
+        stored_cheap_hours = subentry.data.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS)
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=_cheap_hour_schema(
-                name=subentry.title,
-                cheap_hours=subentry.data.get(
-                    CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS
+                # Bei einem Fehler die Eingaben erhalten, sonst die
+                # gespeicherten Werte des Untereintrags vorbefüllen.
+                name=(
+                    user_input.get(CONF_NAME)
+                    if user_input is not None
+                    else subentry.title
+                ),
+                cheap_hours=(
+                    user_input.get(CONF_CHEAP_HOURS, stored_cheap_hours)
+                    if user_input is not None
+                    else stored_cheap_hours
                 ),
             ),
             errors=errors,
