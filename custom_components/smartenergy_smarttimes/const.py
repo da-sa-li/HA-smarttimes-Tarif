@@ -38,6 +38,21 @@ DEFAULT_CHEAP_HOURS: Final = 4.0
 # Untereintrag-Typ (Config Subentry) für einen "Günstige Stunde"-Sensor.
 SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
 
+# Last-Glättung ("Jitter") für die "Günstige Stunde"-Sensoren.
+#
+# Würden hunderte Verbraucher exakt zur selben Sekunde (z. B. 10:00:00) eine
+# große Last schalten, entstünde eine Lastspitze, die das Stromnetz belastet.
+# Jeder Sensor verschiebt seine Schaltflanken deshalb um einen kleinen,
+# deterministisch aus der Subentry-ID abgeleiteten Versatz (siehe jitter.py).
+#
+# - Einschalten: Verzögerung gleichverteilt in [0, JITTER_ON_MAX_SECONDS]; es
+#   wird nie *vor* Beginn des günstigen Blocks eingeschaltet.
+# - Ausschalten: symmetrischer Versatz in [-JITTER_OFF_SPAN_SECONDS/2,
+#   +JITTER_OFF_SPAN_SECONDS/2] um die Blockgrenze – der Erwartungswert fällt
+#   damit genau auf die volle (Block-)Grenze.
+JITTER_ON_MAX_SECONDS: Final = 600
+JITTER_OFF_SPAN_SECONDS: Final = 600
+
 # Wie oft der Koordinator die Entitäten neu berechnet (aktueller Preis).
 # Die eigentlichen API-Aufrufe werden intern stärker gedrosselt
 # (siehe MIN_FETCH_INTERVAL), damit die API nicht unnötig belastet wird.

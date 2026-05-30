@@ -19,8 +19,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import SmartTimesConfigEntry
-from .const import CONF_CHEAP_HOURS, DOMAIN, SUBENTRY_TYPE_CHEAP_HOUR, UNIT_CT_PER_KWH
+from .const import (
+    CONF_CHEAP_HOURS,
+    DOMAIN,
+    JITTER_ON_MAX_SECONDS,
+    SUBENTRY_TYPE_CHEAP_HOUR,
+    UNIT_CT_PER_KWH,
+)
 from .coordinator import SmartTimesCoordinator
+from .jitter import cheap_phase
 
 
 async def async_setup_entry(
@@ -55,6 +62,10 @@ class CheapHourBinarySensor(
     ) -> None:
         super().__init__(coordinator)
         self._cheap_hours: float = subentry.data[CONF_CHEAP_HOURS]
+        # Deterministischer, vom Nutzer nicht editierbarer Last-Glättungs-Versatz.
+        # Aus der Subentry-ID abgeleitet, damit er stabil und je Sensor
+        # gleichverteilt ist (siehe jitter.py).
+        self._jitter_phase: float = cheap_phase(subentry.subentry_id)
         self._attr_unique_id = f"{subentry.subentry_id}_cheap_hour"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
@@ -67,23 +78,26 @@ class CheapHourBinarySensor(
 
     @property
     def is_on(self) -> bool | None:
-        """Ob das aktuelle Intervall günstig ist."""
+        """Ob der aktuelle Zeitpunkt im (gejitterten) günstigen Fenster liegt."""
         data = self.coordinator.data
-        price = data.current()
-        if price is None:
+        now = dt_util.now()
+        # Ohne Preisabdeckung für „jetzt" ist der Zustand unbekannt.
+        if data.current(now) is None:
             return None
-        return data.is_cheap(price, self._cheap_hours)
+        return data.is_cheap_now(now, self._cheap_hours, self._jitter_phase)
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Schwellwert, günstige Intervalle und nächster günstiger Start."""
+        """Schwellwert, günstige Intervalle, gejitterte Fenster und nächster Start."""
         data = self.coordinator.data
         now = dt_util.now()
         today = now.date()
-        price = data.current()
+        price = data.current(now)
         cheap = data.cheap_intervals(today, self._cheap_hours)
-        upcoming = [p for p in cheap if p.start > now]
-        next_cheap = upcoming[0] if upcoming else None
+        windows = data.jittered_cheap_windows(
+            today, self._cheap_hours, self._jitter_phase
+        )
+        next_on = data.next_cheap_on(now, self._cheap_hours, self._jitter_phase)
 
         def current_price() -> StateType:
             return data.all_in_value(price) if price else None
@@ -94,9 +108,12 @@ class CheapHourBinarySensor(
             "current_price_ct_kwh": current_price(),
             "unit_ct": UNIT_CT_PER_KWH,
             "vat_included": data.include_vat,
-            "next_cheap_start": (
-                next_cheap.start.isoformat() if next_cheap else None
+            # Last-Glättung: konstanter Einschalt-Versatz dieses Sensors in
+            # Sekunden (deterministisch, vom Nutzer nicht änderbar).
+            "jitter_offset_seconds": round(
+                self._jitter_phase * JITTER_ON_MAX_SECONDS
             ),
+            "next_cheap_start": next_on.isoformat() if next_on else None,
             "cheap_intervals": [
                 {
                     "start": p.start.isoformat(),
@@ -104,5 +121,10 @@ class CheapHourBinarySensor(
                     "price": data.all_in_value(p),
                 }
                 for p in cheap
+            ],
+            # Tatsächliche, gejitterte Schaltfenster (so, wie der Sensor schaltet).
+            "cheap_windows": [
+                {"on": on_time.isoformat(), "off": off_time.isoformat()}
+                for on_time, off_time in windows
             ],
         }
