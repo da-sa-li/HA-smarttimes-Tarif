@@ -84,9 +84,12 @@ def _cheap_hour_schema(
         if name is None
         else vol.Required(CONF_NAME, default=name)
     )
+    # Namen trimmen und Leerwerte ablehnen, damit kein leerer Gerätename
+    # (subentry.title) entstehen kann.
+    name_value = vol.All(str, lambda value: value.strip(), vol.Length(min=1))
     return vol.Schema(
         {
-            name_key: str,
+            name_key: name_value,
             vol.Required(
                 CONF_CHEAP_HOURS, default=cheap_hours
             ): _cheap_hours_selector(),

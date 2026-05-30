@@ -90,24 +90,24 @@ aufgebaut:
 2. Nach **smartENERGY smartTIMES** suchen.
 3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
-   Netzgebiet” lässt die Netzentgelte weg.
+   Netzgebiet“ lässt die Netzentgelte weg.
 
 Diese Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
 Integration ändern.
 
-### „Günstige Stunde”-Sensoren anlegen
+### „Günstige Stunde“-Sensoren anlegen
 
-Die Binary-Sensoren „Günstige Stunde” werden als **Untereinträge** angelegt – so
+Die Binary-Sensoren „Günstige Stunde“ werden als **Untereinträge** angelegt – so
 kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 (z. B. Boiler 4 h, Wallbox 8 h):
 
 1. Bei der Integration unter **smartENERGY smartTIMES** auf **Untereintrag
    hinzufügen** (bzw. **Günstige-Stunde-Sensor hinzufügen**) klicken.
-2. Einen **Namen** (z. B. „Boiler”) und die **Günstigen Stunden pro Tag** angeben.
+2. Einen **Namen** (z. B. „Boiler“) und die **günstigen Stunden pro Tag** angeben.
 3. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
 
 Jeder Untereintrag erscheint als **eigenes Gerät** mit genau einem
-„Günstige Stunde”-Binary-Sensor und lässt sich später einzeln bearbeiten oder
+„Günstige Stunde“-Binary-Sensor und lässt sich später einzeln bearbeiten oder
 entfernen.
 
 ## Sensoren
@@ -216,13 +216,13 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 | `prices_today` / `prices_tomorrow` / `prices` | Vollständige **Gesamtpreis**-Vorschau (`start`, `end`, `price`) – gut für Diagramme |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz          |
 
-### Binary-Sensor „Günstige Stunde"
+### Binary-Sensor „Günstige Stunde“
 
 Statt fester Tarifzonen markiert dieser Sensor die **günstigsten Stunden des
 Tages nach Gesamtkosten** – also inklusive Netzentgelten und SNAP. Er ist `on`,
 solange das laufende Intervall zu den günstigsten Stunden des Tages zählt. Wie
 viele Stunden das sind, legst du je Sensor über die `cheap_hours` des jeweiligen
-Untereintrags fest (siehe Abschnitt **„Günstige Stunde"-Sensoren anlegen**) – so
+Untereintrags fest (siehe Abschnitt **„Günstige Stunde“-Sensoren anlegen**) – so
 kann z. B. der Boiler-Sensor 4 h und der Wallbox-Sensor 8 h verwenden. Teilen
 sich am Schwellwert mehrere Intervalle denselben Preis, werden **alle** davon
 markiert – auch wenn dadurch mehr Stunden als konfiguriert zusammenkommen. So

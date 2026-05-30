@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -123,7 +124,10 @@ class SmartTimesData:
         if self.interval_minutes <= 0:
             return 1
         per_hour = 60 / self.interval_minutes
-        return max(1, round(cheap_hours * per_hour))
+        # Aufrunden, damit bei krummen Werten (z. B. 1,25 h bei 30-Minuten-
+        # Intervallen) die zugesagte „mindestens so viele Intervalle"-Semantik
+        # eingehalten wird, statt zu wenige Intervalle zu markieren.
+        return max(1, math.ceil(cheap_hours * per_hour))
 
     def _cheap_starts(self, day, cheap_hours: float) -> set[datetime]:
         """Startzeiten der günstigsten Intervalle eines Tages.
