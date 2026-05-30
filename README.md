@@ -9,7 +9,7 @@ Schalten von Verbrauchern in günstige Tarifzonen.
 
 ## Funktionen
 
-- 🔌 **Arbeitspreis** der laufenden 15-Minuten-Tarifzone (ct/kWh)
+- 🔌 **Arbeitspreis** der laufenden Tarifzone (ct/kWh)
 - 💶 **Gesamtpreis** in EUR/kWh inkl. aller variablen Nebenkosten – fürs Energie-Dashboard
 - 🧾 **Variable Nebenkosten** automatisch eingerechnet: Elektrizitätsabgabe (mit
   befristeter Senkung bis Ende 2026), Erneuerbaren-Förderbeitrag und
@@ -54,20 +54,20 @@ https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 2. Nach **smartENERGY smartTIMES** suchen.
 3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
-   Netzgebiet" lässt die Netzentgelte weg. Das Netzgebiet steht im
+   Netzgebiet“ lässt die Netzentgelte weg. Das Netzgebiet steht im
    Netzzugangsvertrag des Netzbetreibers.
 
 Diese Einstellungen sind über **Konfigurieren** jederzeit änderbar.
 
-### „Günstige Stunde"-Sensoren anlegen
+### „Günstige Stunde“-Sensoren anlegen
 
-Die Binary-Sensoren „Günstige Stunde" werden als **Untereinträge** angelegt – so
+Die Binary-Sensoren „Günstige Stunde“ werden als **Untereinträge** angelegt – so
 kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 (z. B. Boiler 4 h, Wallbox 8 h):
 
 1. Bei der Integration unter **smartENERGY smartTIMES** auf **Untereintrag
    hinzufügen** (bzw. **Günstige-Stunde-Sensor hinzufügen**) klicken.
-2. Einen **Namen** (z. B. „Boiler") und die **günstigen Stunden pro Tag** angeben.
+2. Einen **Namen** (z. B. „Boiler“) und die **günstigen Stunden pro Tag** angeben.
 3. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
 
 Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeiten oder entfernen.
@@ -140,7 +140,7 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 | `prices_today` / `prices_tomorrow` / `prices` | Vollständige **Gesamtpreis**-Vorschau (`start`, `end`, `price`) |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz          |
 
-### Binary-Sensor „Günstige Stunde"
+### Binary-Sensor „Günstige Stunde“
 
 Dieser Sensor ist `on` während der **günstigsten Stunden des Tages nach
 Gesamtkosten** (inkl. Netzentgelte und SNAP). Die Stundenanzahl wird je
@@ -168,7 +168,7 @@ Attribut `jitter_offset_seconds`.
 | `cheap_windows`      | Tatsächliche, gejitterte Schaltfenster heute (`on`, `off`) |
 | `vat_included`       | `true`, wenn brutto gerechnet wird                       |
 
-### Attribute des Sensors „Arbeitspreis"
+### Attribute des Sensors „Arbeitspreis“
 
 | Attribut            | Beschreibung                                              |
 |---------------------|-----------------------------------------------------------|
