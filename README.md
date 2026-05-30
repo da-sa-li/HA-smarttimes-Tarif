@@ -163,11 +163,13 @@ markiert – auch wenn dadurch mehr Stunden als konfiguriert zusammenkommen.
 
 #### Last-Glättung (Jitter)
 
-Damit viele Nutzer nicht exakt zur selben Sekunde schalten, verschiebt jeder
-Sensor seine Schaltflanken um einen kleinen deterministischen Versatz:
-Einschalten mit bis zu 10 Minuten Verzögerung, Ausschalten symmetrisch um die
-Blockgrenze. Der Versatz ist je Sensor stabil und reproduzierbar – das
-Schaltfenster verschiebt sich nur als Ganzes und wird nicht zerteilt.
+Gleichzeitiges Schalten vieler Verbraucher erzeugt Lastspitzen, die die
+Netzstabilität belasten. Um das zu vermeiden, verschiebt jeder Sensor seine
+Schaltflanken um einen kleinen deterministischen Versatz: Einschalten mit bis
+zu 10 Minuten Verzögerung, Ausschalten symmetrisch um die Blockgrenze. Der
+Versatz ist je Sensor stabil und reproduzierbar – das Schaltfenster verschiebt
+sich nur als Ganzes und wird nicht zerteilt. Den genauen Versatz zeigt das
+Attribut `jitter_offset_seconds`.
 
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
