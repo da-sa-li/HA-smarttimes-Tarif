@@ -21,6 +21,7 @@ from .const import (
     VAT_RATE,
 )
 from .grid_fees import GridZone
+from .jitter import jittered_window
 from .surcharges import (
     surcharge_breakdown as tax_breakdown,
     total_surcharge_ct_per_kwh as total_tax_ct_per_kwh,
@@ -147,11 +148,6 @@ class SmartTimesData:
         cutoff_value = ranked[count - 1][0]
         return {p.start for value, p in valued if value <= cutoff_value}
 
-    def is_cheap(self, price: MarketPrice, cheap_hours: float) -> bool:
-        """Ob ein Intervall zu den günstigsten Stunden seines Tages zählt."""
-        day = dt_util.as_local(price.start).date()
-        return price.start in self._cheap_starts(day, cheap_hours)
-
     def cheap_intervals(self, day, cheap_hours: float) -> list[MarketPrice]:
         """Die günstigsten Intervalle eines Tages (nach Gesamtkosten), chronologisch."""
         starts = self._cheap_starts(day, cheap_hours)
@@ -163,6 +159,68 @@ class SmartTimesData:
         if not intervals:
             return None
         return max(self.all_in_value(p) for p in intervals)
+
+    def _cheap_blocks(
+        self, day, cheap_hours: float
+    ) -> list[tuple[datetime, datetime]]:
+        """Zusammenhängende Günstig-Blöcke eines Tages als ``(start, end)``.
+
+        Direkt aufeinanderfolgende günstige Intervalle werden zu einem Block
+        zusammengefasst, damit der Jitter pro **Block** (nicht pro Intervall)
+        wirkt – ein durchgehender günstiger Zeitraum wird so nie zerteilt.
+        """
+        blocks: list[tuple[datetime, datetime]] = []
+        for price in self.cheap_intervals(day, cheap_hours):  # chronologisch
+            if blocks and blocks[-1][1] == price.start:
+                blocks[-1] = (blocks[-1][0], price.end)
+            else:
+                blocks.append((price.start, price.end))
+        return blocks
+
+    def jittered_cheap_windows(
+        self, day, cheap_hours: float, phase: float
+    ) -> list[tuple[datetime, datetime]]:
+        """Gejitterte Ein-/Ausschaltfenster der Günstig-Blöcke eines Tages.
+
+        ``phase`` ist der sensoreigene, deterministische Versatz-Wert (siehe
+        :func:`.jitter.cheap_phase`). Wirkt ausschließlich für den
+        „Günstige Stunde"-Sensor.
+        """
+        return [
+            jittered_window(start, end, phase)
+            for start, end in self._cheap_blocks(day, cheap_hours)
+        ]
+
+    def is_cheap_now(
+        self, moment: datetime, cheap_hours: float, phase: float
+    ) -> bool:
+        """Ob ``moment`` in einem gejitterten Günstig-Fenster liegt.
+
+        Geprüft werden die Fenster des aktuellen **und** des vorigen Tages, da
+        das Ausschaltfenster des letzten Blocks über Mitternacht hinausreichen
+        kann.
+        """
+        day = dt_util.as_local(moment).date()
+        for d in (day - timedelta(days=1), day):
+            for on_time, off_time in self.jittered_cheap_windows(
+                d, cheap_hours, phase
+            ):
+                if on_time <= moment < off_time:
+                    return True
+        return False
+
+    def next_cheap_on(
+        self, moment: datetime, cheap_hours: float, phase: float
+    ) -> datetime | None:
+        """Nächster gejitterter Einschaltzeitpunkt nach ``moment`` (oder ``None``)."""
+        day = dt_util.as_local(moment).date()
+        upcoming = [
+            on_time
+            for d in (day, day + timedelta(days=1))
+            for on_time, _ in self.jittered_cheap_windows(d, cheap_hours, phase)
+            if on_time > moment
+        ]
+        return min(upcoming) if upcoming else None
 
 
 class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):

@@ -228,13 +228,36 @@ sich am Schwellwert mehrere Intervalle denselben Preis, werden **alle** davon
 markiert – auch wenn dadurch mehr Stunden als konfiguriert zusammenkommen. So
 bleibt keine gleich günstige Stunde unberücksichtigt.
 
+#### Last-Glättung (Jitter)
+
+Würden hunderte Verbraucher exakt zur selben Sekunde (z. B. um 10:00:00) eine
+große Last ein- oder ausschalten, entstünde eine Lastspitze, die das Stromnetz
+belastet. Damit sich die aggregierte Last über viele Nutzer **glättet**,
+verschiebt jeder Sensor seine Schaltflanken um einen kleinen Versatz:
+
+- **Einschalten:** Verzögerung gleichverteilt in **[0, 600 s]** (Erwartungswert
+  +5 min). Es wird **nie vor** Beginn des günstigen Blocks eingeschaltet.
+- **Ausschalten:** symmetrischer Versatz in **[−300 s, +300 s]** um die
+  Blockgrenze – der Erwartungswert fällt damit genau auf die Grenze.
+
+Der Versatz ist **deterministisch** aus der (vom Nutzer nicht editierbaren)
+internen ID des Sensors abgeleitet: makroskopisch zufällig und über viele
+Sensoren gleichverteilt, aber je Sensor stabil und reproduzierbar (kein
+Flackern, jederzeit nachrechenbar). Da für beide Flanken derselbe Wert
+verwendet wird, **verschiebt** sich das günstige Fenster nur und wird nie
+zerteilt; seine Länge verkürzt sich für jeden Sensor um konstant 5 min (beim
+kleinsten 15‑min‑Block bleiben also 10 min). Der Jitter wirkt ausschließlich auf
+diesen Binary-Sensor – die Preis-Sensoren bleiben unberührt.
+
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
 | `cheap_hours`        | Konfigurierte Anzahl günstiger Stunden pro Tag           |
 | `threshold_ct_kwh`   | Höchster Gesamtpreis unter den günstigen Intervallen     |
 | `current_price_ct_kwh` | Aktueller Gesamtpreis (ct/kWh)                         |
-| `next_cheap_start`   | Beginn des nächsten günstigen Intervalls                 |
+| `jitter_offset_seconds` | Konstanter Einschalt-Versatz dieses Sensors (Sekunden) |
+| `next_cheap_start`   | Nächster (gejitterter) Einschaltzeitpunkt                |
 | `cheap_intervals`    | Liste der heutigen günstigen Intervalle (`start`, `end`, `price`) |
+| `cheap_windows`      | Tatsächliche, gejitterte Schaltfenster heute (`on`, `off`) |
 | `vat_included`       | `true`, wenn brutto gerechnet wird                       |
 
 ```yaml
