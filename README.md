@@ -1,11 +1,9 @@
 # smartENERGY smartTIMES – Home Assistant Integration
 
 Eine [Home Assistant](https://www.home-assistant.io/) Integration für den
-dynamischen Stromtarif **smartTIMES** des österreichischen Anbieters
-[smartENERGY](https://www.smartenergy.at/). Sie ruft die öffentliche
-smartTIMES-Preis-API ab und stellt die stündlichen Tarifpreise als
-Sensoren bereit – ideal, um Verbraucher automatisch in günstige Tarifzonen zu
-verschieben.
+dynamischen Stromtarif **smartTIMES** von [smartENERGY](https://www.smartenergy.at/),
+die stündliche Tarifpreise als Sensoren bereitstellt – ideal zum automatischen
+Schalten von Verbrauchern in günstige Tarifzonen.
 
 > Diese Integration ist ein Community-Projekt und steht in keiner Verbindung zu smartENERGY oder der Energie Steiermark Kunden GmbH.
 
@@ -59,8 +57,7 @@ https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
    Netzgebiet" lässt die Netzentgelte weg. Das Netzgebiet steht im
    Netzzugangsvertrag des Netzbetreibers.
 
-Diese Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
-Integration ändern.
+Diese Einstellungen sind über **Konfigurieren** jederzeit änderbar.
 
 ### „Günstige Stunde"-Sensoren anlegen
 
@@ -73,9 +70,7 @@ kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 2. Einen **Namen** (z. B. „Boiler") und die **günstigen Stunden pro Tag** angeben.
 3. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
 
-Jeder Untereintrag erscheint als **eigenes Gerät** mit genau einem
-„Günstige Stunde"-Binary-Sensor und lässt sich später einzeln bearbeiten oder
-entfernen.
+Jeder Untereintrag erscheint als eigenes Gerät und lässt sich einzeln bearbeiten oder entfernen.
 
 ## Sensoren
 
@@ -89,11 +84,15 @@ entfernen.
 | `sensor.smartenergy_smarttimes_hochster_gesamtpreis_heute`     | Teuerster **Gesamtpreis** heute (ct/kWh) |
 | `sensor.smartenergy_smarttimes_grundgebuhr`              | Monatliche Grundgebühr (EUR/Monat)   |
 
+Der **Arbeitspreis**-Sensor enthält nur den reinen Energiepreis (ct/kWh). Der
+**Gesamtpreis**-Sensor (EUR/kWh) addiert Steuern, Abgaben und Netzentgelte und
+ist die richtige Wahl fürs Energie-Dashboard und zum Schalten. Tageskennzahlen
+und Günstige-Stunde-Sensor beziehen sich auf den **Gesamtpreis**.
+
 ### Nebenkosten (Steuern, Abgaben und Netzentgelte)
 
-In Österreich ist ein großer Teil des Strompreises *nicht* der Arbeitspreis,
-sondern Steuern/Abgaben und Netzentgelte. Der **Gesamtpreis**-Sensor
-(`…_gesamtpreis_eur_kwh`) rechnet diese Nebenkosten ein.
+Der **Gesamtpreis**-Sensor (`…_gesamtpreis_eur_kwh`) addiert zum Arbeitspreis
+die in Österreich anfallenden Steuern/Abgaben und Netzentgelte.
 
 **Steuern/Abgaben** (bundeseinheitlich, in `surcharges.py`):
 
@@ -102,8 +101,7 @@ sondern Steuern/Abgaben und Netzentgelte. Der **Gesamtpreis**-Sensor
 | Elektrizitätsabgabe        | 1,5 ct/kWh  | **bis 31.12.2026 auf 0,1 ct/kWh gesenkt** |
 | Erneuerbaren-Förderbeitrag | 0,364 ct/kWh | Verordnung 2026; 2022–2024 ausgesetzt, seit 2025 wieder aktiv |
 
-Die Sätze sind als datierte Tabelle hinterlegt, sodass z. B. ab dem 01.01.2027
-automatisch wieder der Regelsatz der Elektrizitätsabgabe greift.
+Ab dem 01.01.2027 greift automatisch wieder der Regelsatz der Elektrizitätsabgabe.
 
 **Netzentgelte** (netzgebietsabhängig, in `grid_fees.py`, Stand 2026):
 
@@ -114,8 +112,7 @@ mit **Viertelstundenmessung (IME)** berücksichtigt:
 - **Netzverlustentgelt** – konstant.
 
 Der **Sommer-Nieder-Arbeitspreis (SNAP)** senkt den Netz-Arbeitspreis vom
-**1. April bis 30. September täglich von 10:00–16:00 Uhr** um 20 %. Voraussetzung
-ist die für smartTIMES ohnehin nötige Viertelstundenmessung. Das Attribut
+**1. April bis 30. September täglich von 10:00–16:00 Uhr** um 20 %. Das Attribut
 `snap_active` zeigt, ob das Fenster gerade gilt.
 
 > Der **Netznutzungs-Leistungspreis** (Kapazitätsentgelt, €/kW nach Spitzenlast)
@@ -145,14 +142,10 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 
 ### Binary-Sensor „Günstige Stunde"
 
-Statt fester Tarifzonen markiert dieser Sensor die **günstigsten Stunden des
-Tages nach Gesamtkosten** – also inklusive Netzentgelten und SNAP. Er ist `on`,
-solange das laufende Intervall zu den günstigsten Stunden des Tages zählt. Wie
-viele Stunden das sind, legst du je Sensor über die `cheap_hours` des jeweiligen
-Untereintrags fest (siehe Abschnitt **„Günstige Stunde"-Sensoren anlegen**) – so
-kann z. B. der Boiler-Sensor 4 h und der Wallbox-Sensor 8 h verwenden. Teilen
-sich am Schwellwert mehrere Intervalle denselben Preis, werden **alle** davon
-markiert – auch wenn dadurch mehr Stunden als konfiguriert zusammenkommen.
+Dieser Sensor ist `on` während der **günstigsten Stunden des Tages nach
+Gesamtkosten** (inkl. Netzentgelte und SNAP). Die Stundenanzahl wird je
+Untereintrag über `cheap_hours` konfiguriert (z. B. Boiler 4 h, Wallbox 8 h).
+Teilen sich mehrere Intervalle denselben Grenzpreis, werden alle davon markiert.
 
 #### Last-Glättung (Jitter)
 
