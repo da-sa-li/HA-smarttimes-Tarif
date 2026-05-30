@@ -10,8 +10,11 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
+    ConfigSubentryFlow,
     OptionsFlow,
+    SubentryFlowResult,
 )
+from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import selector
@@ -26,6 +29,7 @@ from .const import (
     DEFAULT_INCLUDE_VAT,
     DOMAIN,
     GRID_ZONE_NONE,
+    SUBENTRY_TYPE_CHEAP_HOUR,
 )
 from .grid_fees import GRID_ZONES
 
@@ -59,7 +63,7 @@ def _cheap_hours_selector() -> selector.NumberSelector:
     )
 
 
-def _schema(include_vat: bool, grid_zone: str, cheap_hours: float) -> vol.Schema:
+def _schema(include_vat: bool, grid_zone: str) -> vol.Schema:
     """Gemeinsames Schema für Einrichtung und Optionen."""
     return vol.Schema(
         {
@@ -67,6 +71,22 @@ def _schema(include_vat: bool, grid_zone: str, cheap_hours: float) -> vol.Schema
             vol.Required(
                 CONF_GRID_ZONE, default=grid_zone
             ): _grid_zone_selector(),
+        }
+    )
+
+
+def _cheap_hour_schema(
+    name: str | None = None, cheap_hours: float = DEFAULT_CHEAP_HOURS
+) -> vol.Schema:
+    """Schema für einen „Günstige Stunde"-Untereintrag (Name + Stundenzahl)."""
+    name_key = (
+        vol.Required(CONF_NAME)
+        if name is None
+        else vol.Required(CONF_NAME, default=name)
+    )
+    return vol.Schema(
+        {
+            name_key: str,
             vol.Required(
                 CONF_CHEAP_HOURS, default=cheap_hours
             ): _cheap_hours_selector(),
@@ -108,17 +128,12 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_GRID_ZONE: user_input.get(
                             CONF_GRID_ZONE, DEFAULT_GRID_ZONE
                         ),
-                        CONF_CHEAP_HOURS: user_input.get(
-                            CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS
-                        ),
                     },
                 )
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_schema(
-                DEFAULT_INCLUDE_VAT, DEFAULT_GRID_ZONE, DEFAULT_CHEAP_HOURS
-            ),
+            data_schema=_schema(DEFAULT_INCLUDE_VAT, DEFAULT_GRID_ZONE),
             errors=errors,
         )
 
@@ -129,6 +144,14 @@ class SmartTimesConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> SmartTimesOptionsFlow:
         """Liefert den Options-Flow."""
         return SmartTimesOptionsFlow()
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """„Günstige Stunde"-Sensoren als Untereinträge unterstützen."""
+        return {SUBENTRY_TYPE_CHEAP_HOUR: CheapHourSubentryFlowHandler}
 
 
 class SmartTimesOptionsFlow(OptionsFlow):
@@ -147,6 +170,45 @@ class SmartTimesOptionsFlow(OptionsFlow):
             data_schema=_schema(
                 options.get(CONF_INCLUDE_VAT, DEFAULT_INCLUDE_VAT),
                 options.get(CONF_GRID_ZONE, DEFAULT_GRID_ZONE),
-                options.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS),
+            ),
+        )
+
+
+class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
+    """Flow zum Anlegen und Bearbeiten eines „Günstige Stunde"-Sensors."""
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Einen neuen „Günstige Stunde"-Sensor (Untereintrag) anlegen."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title=user_input[CONF_NAME],
+                data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
+            )
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_cheap_hour_schema(),
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Einen bestehenden „Günstige Stunde"-Sensor bearbeiten."""
+        subentry = self._get_reconfigure_subentry()
+        if user_input is not None:
+            return self.async_update_and_abort(
+                self._get_entry(),
+                subentry,
+                title=user_input[CONF_NAME],
+                data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
+            )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=_cheap_hour_schema(
+                name=subentry.title,
+                cheap_hours=subentry.data.get(
+                    CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS
+                ),
             ),
         )

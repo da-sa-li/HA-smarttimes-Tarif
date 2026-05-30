@@ -14,7 +14,6 @@ from homeassistant.util import dt as dt_util
 from .api import MarketPrice, SmartTimesApiClient, SmartTimesApiError, SmartTimesResult
 from .api import FeeEntry
 from .const import (
-    DEFAULT_CHEAP_HOURS,
     DOMAIN,
     MIN_FETCH_INTERVAL_MINUTES,
     RECALC_INTERVAL_MINUTES,
@@ -41,7 +40,6 @@ class SmartTimesData:
     basic_fees: list[FeeEntry] = field(default_factory=list)
     basic_fee_unit: str | None = None
     grid_zone: GridZone | None = None
-    cheap_hours: float = DEFAULT_CHEAP_HOURS
 
     def current(self, moment: datetime | None = None) -> MarketPrice | None:
         """Der für ``moment`` (Standard: jetzt) gültige Preis-Eintrag."""
@@ -120,14 +118,14 @@ class SmartTimesData:
         entry = applicable[-1] if applicable else self.basic_fees[0]
         return entry.value(self.include_vat)
 
-    def _cheap_count(self) -> int:
+    def _cheap_count(self, cheap_hours: float) -> int:
         """Anzahl der als günstig zu markierenden Intervalle pro Tag."""
         if self.interval_minutes <= 0:
             return 1
         per_hour = 60 / self.interval_minutes
-        return max(1, round(self.cheap_hours * per_hour))
+        return max(1, round(cheap_hours * per_hour))
 
-    def _cheap_starts(self, day) -> set[datetime]:
+    def _cheap_starts(self, day, cheap_hours: float) -> set[datetime]:
         """Startzeiten der günstigsten Intervalle eines Tages.
 
         Es werden mindestens so viele Intervalle gewählt, wie ``cheap_hours``
@@ -141,23 +139,23 @@ class SmartTimesData:
             return set()
         valued = [(self.all_in_value(p), p) for p in prices]
         ranked = sorted(valued, key=lambda item: (item[0], item[1].start))
-        count = min(self._cheap_count(), len(ranked))
+        count = min(self._cheap_count(cheap_hours), len(ranked))
         cutoff_value = ranked[count - 1][0]
         return {p.start for value, p in valued if value <= cutoff_value}
 
-    def is_cheap(self, price: MarketPrice) -> bool:
+    def is_cheap(self, price: MarketPrice, cheap_hours: float) -> bool:
         """Ob ein Intervall zu den günstigsten Stunden seines Tages zählt."""
         day = dt_util.as_local(price.start).date()
-        return price.start in self._cheap_starts(day)
+        return price.start in self._cheap_starts(day, cheap_hours)
 
-    def cheap_intervals(self, day) -> list[MarketPrice]:
+    def cheap_intervals(self, day, cheap_hours: float) -> list[MarketPrice]:
         """Die günstigsten Intervalle eines Tages (nach Gesamtkosten), chronologisch."""
-        starts = self._cheap_starts(day)
+        starts = self._cheap_starts(day, cheap_hours)
         return [price for price in self.for_day(day) if price.start in starts]
 
-    def cheap_cutoff(self, day) -> float | None:
+    def cheap_cutoff(self, day, cheap_hours: float) -> float | None:
         """Höchster Gesamtpreis (ct/kWh) unter den günstigen Intervallen des Tages."""
-        intervals = self.cheap_intervals(day)
+        intervals = self.cheap_intervals(day, cheap_hours)
         if not intervals:
             return None
         return max(self.all_in_value(p) for p in intervals)
@@ -179,7 +177,6 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         client: SmartTimesApiClient,
         include_vat: bool,
         grid_zone: GridZone | None = None,
-        cheap_hours: float = DEFAULT_CHEAP_HOURS,
     ) -> None:
         super().__init__(
             hass,
@@ -191,7 +188,6 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
         self._client = client
         self._include_vat = include_vat
         self._grid_zone = grid_zone
-        self._cheap_hours = cheap_hours
         self._last_fetch: datetime | None = None
         self._last_result: SmartTimesResult | None = None
 
@@ -240,5 +236,4 @@ class SmartTimesCoordinator(DataUpdateCoordinator[SmartTimesData]):
             basic_fees=result.basic_fees,
             basic_fee_unit=result.basic_fee_unit,
             grid_zone=self._grid_zone,
-            cheap_hours=self._cheap_hours,
         )

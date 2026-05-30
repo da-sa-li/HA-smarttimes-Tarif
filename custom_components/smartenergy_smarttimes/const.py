@@ -28,10 +28,15 @@ CONF_GRID_ZONE: Final = "grid_zone"
 GRID_ZONE_NONE: Final = "none"
 DEFAULT_GRID_ZONE: Final = GRID_ZONE_NONE
 
-# Anzahl der günstigsten Stunden pro Tag (nach Gesamtkosten), die der
-# Binary-Sensor "Günstige Stunde" als günstig markiert.
+# Anzahl der günstigsten Stunden pro Tag (nach Gesamtkosten), die ein
+# Binary-Sensor "Günstige Stunde" als günstig markiert. Wird je Untereintrag
+# (Subentry) konfiguriert – pro Verbraucher ein eigener Sensor mit eigener
+# Stundenzahl.
 CONF_CHEAP_HOURS: Final = "cheap_hours"
 DEFAULT_CHEAP_HOURS: Final = 4.0
+
+# Untereintrag-Typ (Config Subentry) für einen "Günstige Stunde"-Sensor.
+SUBENTRY_TYPE_CHEAP_HOUR: Final = "cheap_hour"
 
 # Wie oft der Koordinator die Entitäten neu berechnet (aktueller Preis).
 # Die eigentlichen API-Aufrufe werden intern stärker gedrosselt

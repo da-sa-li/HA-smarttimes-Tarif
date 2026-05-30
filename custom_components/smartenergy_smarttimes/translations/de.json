@@ -6,12 +6,10 @@
         "description": "Ruft die smartTIMES-Tarifpreise von smartENERGY ab. Es ist kein API-Schlüssel erforderlich.",
         "data": {
           "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
-          "grid_zone": "Netzgebiet (für die Netzentgelte)",
-          "cheap_hours": "Günstige Stunden pro Tag"
+          "grid_zone": "Netzgebiet (für die Netzentgelte)"
         },
         "data_description": {
-          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg.",
-          "cheap_hours": "Wie viele Stunden pro Tag der Binary-Sensor „Günstige Stunde“ (nach Gesamtkosten) als günstig markiert."
+          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
       }
     },
@@ -28,14 +26,38 @@
         "title": "smartTIMES Optionen",
         "data": {
           "include_vat": "Preise inkl. 20 % USt. (brutto) anzeigen",
-          "grid_zone": "Netzgebiet (für die Netzentgelte)",
-          "cheap_hours": "Günstige Stunden pro Tag"
+          "grid_zone": "Netzgebiet (für die Netzentgelte)"
         },
         "data_description": {
-          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg.",
-          "cheap_hours": "Wie viele Stunden pro Tag der Binary-Sensor „Günstige Stunde“ (nach Gesamtkosten) als günstig markiert."
+          "grid_zone": "Bestimmt die Netzentgelte (Netzebene 7, Viertelstundenmessung) im Gesamtpreis. „Kein Netzgebiet“ lässt sie weg."
         }
       }
+    }
+  },
+  "config_subentries": {
+    "cheap_hour": {
+      "step": {
+        "user": {
+          "title": "Günstige-Stunde-Sensor hinzufügen",
+          "description": "Sensor für einen Verbraucher anlegen. Er ist aktiv, solange die laufende Stunde zu den günstigsten des Tages zählt.",
+          "data": {
+            "name": "Name (z. B. Boiler, Wallbox)",
+            "cheap_hours": "Günstige Stunden pro Tag"
+          }
+        },
+        "reconfigure": {
+          "title": "Günstige-Stunde-Sensor bearbeiten",
+          "data": {
+            "name": "Name (z. B. Boiler, Wallbox)",
+            "cheap_hours": "Günstige Stunden pro Tag"
+          }
+        }
+      },
+      "initiate_flow": {
+        "user": "Günstige-Stunde-Sensor hinzufügen",
+        "reconfigure": "Günstige-Stunde-Sensor bearbeiten"
+      },
+      "entry_type": "Günstige-Stunde-Sensor"
     }
   },
   "selector": {
