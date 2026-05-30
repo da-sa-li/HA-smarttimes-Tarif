@@ -53,6 +53,9 @@
           }
         }
       },
+      "error": {
+        "name_required": "Please enter a name."
+      },
       "initiate_flow": {
         "user": "Add cheap-hour sensor",
         "reconfigure": "Edit cheap-hour sensor"

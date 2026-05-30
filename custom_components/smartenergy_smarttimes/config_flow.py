@@ -78,18 +78,21 @@ def _schema(include_vat: bool, grid_zone: str) -> vol.Schema:
 def _cheap_hour_schema(
     name: str | None = None, cheap_hours: float = DEFAULT_CHEAP_HOURS
 ) -> vol.Schema:
-    """Schema für einen „Günstige Stunde"-Untereintrag (Name + Stundenzahl)."""
+    """Schema für einen „Günstige Stunde"-Untereintrag (Name + Stundenzahl).
+
+    Der Name wird hier nur als ``str`` typisiert, damit das Schema für das
+    Frontend serialisierbar bleibt (Callables/Validatoren wie ``vol.All`` mit
+    Lambda lassen sich nicht serialisieren). Das Trimmen und die Leerwert-
+    Prüfung passieren stattdessen im Flow-Schritt.
+    """
     name_key = (
         vol.Required(CONF_NAME)
         if name is None
         else vol.Required(CONF_NAME, default=name)
     )
-    # Namen trimmen und Leerwerte ablehnen, damit kein leerer Gerätename
-    # (subentry.title) entstehen kann.
-    name_value = vol.All(str, lambda value: value.strip(), vol.Length(min=1))
     return vol.Schema(
         {
-            name_key: name_value,
+            name_key: str,
             vol.Required(
                 CONF_CHEAP_HOURS, default=cheap_hours
             ): _cheap_hours_selector(),
@@ -184,14 +187,29 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Einen neuen „Günstige Stunde"-Sensor (Untereintrag) anlegen."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(
-                title=user_input[CONF_NAME],
-                data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
-            )
+            name = user_input[CONF_NAME].strip()
+            if not name:
+                errors[CONF_NAME] = "name_required"
+            else:
+                return self.async_create_entry(
+                    title=name,
+                    data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
+                )
         return self.async_show_form(
             step_id="user",
-            data_schema=_cheap_hour_schema(),
+            data_schema=_cheap_hour_schema(
+                # Bei einem Fehler die bereits eingegebenen Werte erhalten,
+                # statt das Formular auf die Defaults zurückzusetzen.
+                name=user_input.get(CONF_NAME) if user_input else None,
+                cheap_hours=(
+                    user_input.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS)
+                    if user_input
+                    else DEFAULT_CHEAP_HOURS
+                ),
+            ),
+            errors=errors,
         )
 
     async def async_step_reconfigure(
@@ -199,19 +217,34 @@ class CheapHourSubentryFlowHandler(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Einen bestehenden „Günstige Stunde"-Sensor bearbeiten."""
         subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_update_and_abort(
-                self._get_entry(),
-                subentry,
-                title=user_input[CONF_NAME],
-                data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
-            )
+            name = user_input[CONF_NAME].strip()
+            if not name:
+                errors[CONF_NAME] = "name_required"
+            else:
+                return self.async_update_and_abort(
+                    self._get_entry(),
+                    subentry,
+                    title=name,
+                    data={CONF_CHEAP_HOURS: user_input[CONF_CHEAP_HOURS]},
+                )
+        stored_cheap_hours = subentry.data.get(CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS)
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=_cheap_hour_schema(
-                name=subentry.title,
-                cheap_hours=subentry.data.get(
-                    CONF_CHEAP_HOURS, DEFAULT_CHEAP_HOURS
+                # Bei einem Fehler die Eingaben erhalten, sonst die
+                # gespeicherten Werte des Untereintrags vorbefüllen.
+                name=(
+                    user_input.get(CONF_NAME)
+                    if user_input is not None
+                    else subentry.title
+                ),
+                cheap_hours=(
+                    user_input.get(CONF_CHEAP_HOURS, stored_cheap_hours)
+                    if user_input is not None
+                    else stored_cheap_hours
                 ),
             ),
+            errors=errors,
         )

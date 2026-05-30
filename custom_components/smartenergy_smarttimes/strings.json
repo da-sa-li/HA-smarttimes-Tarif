@@ -53,6 +53,9 @@
           }
         }
       },
+      "error": {
+        "name_required": "Bitte einen Namen angeben."
+      },
       "initiate_flow": {
         "user": "Günstige-Stunde-Sensor hinzufügen",
         "reconfigure": "Günstige-Stunde-Sensor bearbeiten"
