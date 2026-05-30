@@ -34,41 +34,7 @@ Die Integration verwendet die öffentliche smartTIMES-API:
 https://apis.smartenergy.at/tariffs/v1/Tariffs/smartTIMES/prices
 ```
 
-Die API liefert pro Zeitintervall (i. d. R. 15 Minuten) den gültigen
-Tarifpreis sowie die monatliche Grundgebühr. Die Antwort ist wie folgt
-aufgebaut:
-
-```json
-{
-  "energyPrice": {
-    "interval": 15,
-    "unit": "cent/kWh",
-    "values": [
-      { "dateTimeFrom": "2026-05-29T00:00:00+02:00", "value": 11.244 },
-      { "dateTimeFrom": "2026-05-29T00:15:00+02:00", "value": 11.244 }
-    ]
-  },
-  "basicFee": {
-    "unit": "EUR/month",
-    "values": [
-      { "dateTimeFrom": "2026-05-29T00:00:00+02:00", "value": 2.988 }
-    ]
-  }
-}
-```
-
-| Feld                       | Bedeutung                                          |
-|----------------------------|----------------------------------------------------|
-| `energyPrice.unit`         | Einheit des Energiepreises (z. B. `cent/kWh`)      |
-| `energyPrice.interval`     | Gültigkeit des Preises in Minuten                  |
-| `…values[].dateTimeFrom`   | Preis gültig ab (lokale Datum/Uhrzeit, mit Offset) |
-| `…values[].value`          | Preis **inkl. 20 % MwSt.** (dezimal)               |
-| `basicFee`                 | Monatliche Grundgebühr (z. B. `EUR/month`)         |
-
-> Hinweis: Die Integration unterstützt zusätzlich das ältere, in der
-> Dokumentation gezeigte Format (`data` / `date`) als Fallback. Da die API
-> lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant korrekt
-> auf `Europe/Vienna` eingestellt sein.
+> Da die API lokale Zeitstempel liefert, sollte die Zeitzone in Home Assistant auf `Europe/Vienna` eingestellt sein.
 
 ## Installation
 
@@ -90,24 +56,24 @@ aufgebaut:
 2. Nach **smartENERGY smartTIMES** suchen.
 3. Auswählen, ob die Preise inkl. USt. (brutto) angezeigt werden sollen.
 4. Das **Netzgebiet** wählen (für die Netzentgelte im Gesamtpreis). „Kein
-   Netzgebiet“ lässt die Netzentgelte weg.
+   Netzgebiet" lässt die Netzentgelte weg.
 
 Diese Einstellungen lassen sich später jederzeit über **Konfigurieren** bei der
 Integration ändern.
 
-### „Günstige Stunde“-Sensoren anlegen
+### „Günstige Stunde"-Sensoren anlegen
 
-Die Binary-Sensoren „Günstige Stunde“ werden als **Untereinträge** angelegt – so
+Die Binary-Sensoren „Günstige Stunde" werden als **Untereinträge** angelegt – so
 kannst du pro Verbraucher einen eigenen Sensor mit eigener Stundenzahl erstellen
 (z. B. Boiler 4 h, Wallbox 8 h):
 
 1. Bei der Integration unter **smartENERGY smartTIMES** auf **Untereintrag
    hinzufügen** (bzw. **Günstige-Stunde-Sensor hinzufügen**) klicken.
-2. Einen **Namen** (z. B. „Boiler“) und die **günstigen Stunden pro Tag** angeben.
+2. Einen **Namen** (z. B. „Boiler") und die **günstigen Stunden pro Tag** angeben.
 3. Beliebig viele weitere Sensoren auf dieselbe Weise hinzufügen.
 
 Jeder Untereintrag erscheint als **eigenes Gerät** mit genau einem
-„Günstige Stunde“-Binary-Sensor und lässt sich später einzeln bearbeiten oder
+„Günstige Stunde"-Binary-Sensor und lässt sich später einzeln bearbeiten oder
 entfernen.
 
 ## Sensoren
@@ -130,34 +96,6 @@ und als Entscheidungsgrundlage fürs Schalten. Die Tageskennzahlen beziehen sich
 ebenfalls auf den **Gesamtpreis** (ct/kWh). Der Grundgebühr-Sensor verwendet
 **EUR/Monat**.
 
-> ℹ️ **Hinweis für Updates von einer älteren Version:**
-> - Der Tarifzonen-Sensor (`…_tarifzone`, Off-Peak/Shoulder/Peak) wurde durch
->   den Binary-Sensor **„Günstige Stunde“** (`…_gunstige_stunde`) ersetzt, weil
->   die Tarifzone (nur Energiepreis) durch den zeitvariablen SNAP nicht mehr zum
->   Gesamtkosten-Minimum passte.
-> - Die Tageskennzahlen (Ø/min/max) beziehen sich jetzt auf den **Gesamtpreis**
->   statt nur den Arbeitspreis.
-> - Bestehende Installationen behalten ihre einmal vergebenen Entity-IDs; passe
->   ggf. Dashboards und Automatisierungen an. Der alte Tarifzonen-Sensor wird
->   „unavailable“ und kann entfernt werden.
-
-### Energie-Dashboard
-
-> ⚠️ Home Assistant rechnet `ct/kWh` **nicht** automatisch in EUR um – die
-> Einheit ist nur ein Anzeige-Text. Das Energie-Dashboard nimmt den Zahlenwert
-> des Preissensors direkt als **EUR/kWh**.
-
-Verwende daher fürs Energie-Dashboard den Sensor
-`sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh` (Einheit **EUR/kWh**):
-
-Einstellungen → Dashboards → Energie → Netzverbrauch → *Entität mit aktuellem
-Preis verwenden* → diesen Sensor auswählen.
-
-Dieser Sensor enthält den Gesamtpreis inkl. Nebenkosten (siehe Abschnitt
-[Nebenkosten](#nebenkosten-steuern-und-abgaben)). Damit die Kosten dem
-entsprechen, was du tatsächlich zahlst, sollte die Brutto-Einstellung
-(inkl. USt.) aktiv sein – das ist die Voreinstellung.
-
 ### Nebenkosten (Steuern, Abgaben und Netzentgelte)
 
 In Österreich ist ein großer Teil des Strompreises *nicht* der Arbeitspreis,
@@ -171,10 +109,8 @@ sondern Steuern/Abgaben und Netzentgelte. Der **Gesamtpreis**-Sensor
 | Elektrizitätsabgabe        | 1,5 ct/kWh  | **bis 31.12.2026 auf 0,1 ct/kWh gesenkt** |
 | Erneuerbaren-Förderbeitrag | 0,364 ct/kWh | Verordnung 2026; 2022–2024 ausgesetzt, seit 2025 wieder aktiv |
 
-Die Sätze sind als **datierte Tabelle** hinterlegt – jeder Eintrag kennt seinen
-Gültigkeitszeitraum. Dadurch greift z. B. ab dem 01.01.2027 automatisch wieder
-der Regelsatz der Elektrizitätsabgabe, ohne dass ein Update nötig ist. Der
-Erneuerbaren-Förderbeitrag wird jährlich neu festgelegt (Wert Stand 2026).
+Die Sätze sind als datierte Tabelle hinterlegt, sodass z. B. ab dem 01.01.2027
+automatisch wieder der Regelsatz der Elektrizitätsabgabe greift.
 
 **Netzentgelte** (netzgebietsabhängig, in `grid_fees.py`, Stand 2026):
 
@@ -196,10 +132,8 @@ ist die für smartTIMES ohnehin nötige Viertelstundenmessung. Das Attribut
 > Hinweis: Die Netzentgelte ändern sich jährlich. Die hinterlegten Werte sind
 > Stand 2026 und sollten zum Jahreswechsel aktualisiert werden.
 
-> Alle Nebenkosten werden netto verrechnet; die USt. (20 %) wird – wie in
-> Österreich üblich – auf die **Summe** aus Arbeitspreis, Abgaben und
-> Netzentgelten angewendet. Sie erscheinen daher nur dann brutto, wenn die
-> Brutto-Einstellung aktiv ist.
+> Alle Nebenkosten werden netto verrechnet; die USt. (20 %) wird auf die **Summe**
+> aus Arbeitspreis, Abgaben und Netzentgelten angewendet.
 
 Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 
@@ -213,41 +147,27 @@ Der Gesamtpreis-Sensor liefert die Aufschlüsselung zusätzlich als Attribute:
 | `snap_active`             | `true`, wenn gerade der SNAP gilt                     |
 | `average_today` / `lowest_today` / `highest_today` | Tageskennzahlen (Gesamtpreis, ct/kWh) |
 | `next_price` / `next_price_start` | Gesamtpreis und Beginn des nächsten Intervalls |
-| `prices_today` / `prices_tomorrow` / `prices` | Vollständige **Gesamtpreis**-Vorschau (`start`, `end`, `price`) – gut für Diagramme |
+| `prices_today` / `prices_tomorrow` / `prices` | Vollständige **Gesamtpreis**-Vorschau (`start`, `end`, `price`) |
 | `vat_included` / `vat_rate` | Ob brutto gerechnet wird und der USt.-Satz          |
 
-### Binary-Sensor „Günstige Stunde“
+### Binary-Sensor „Günstige Stunde"
 
 Statt fester Tarifzonen markiert dieser Sensor die **günstigsten Stunden des
 Tages nach Gesamtkosten** – also inklusive Netzentgelten und SNAP. Er ist `on`,
 solange das laufende Intervall zu den günstigsten Stunden des Tages zählt. Wie
 viele Stunden das sind, legst du je Sensor über die `cheap_hours` des jeweiligen
-Untereintrags fest (siehe Abschnitt **„Günstige Stunde“-Sensoren anlegen**) – so
+Untereintrags fest (siehe Abschnitt **„Günstige Stunde"-Sensoren anlegen**) – so
 kann z. B. der Boiler-Sensor 4 h und der Wallbox-Sensor 8 h verwenden. Teilen
 sich am Schwellwert mehrere Intervalle denselben Preis, werden **alle** davon
-markiert – auch wenn dadurch mehr Stunden als konfiguriert zusammenkommen. So
-bleibt keine gleich günstige Stunde unberücksichtigt.
+markiert – auch wenn dadurch mehr Stunden als konfiguriert zusammenkommen.
 
 #### Last-Glättung (Jitter)
 
-Würden hunderte Verbraucher exakt zur selben Sekunde (z. B. um 10:00:00) eine
-große Last ein- oder ausschalten, entstünde eine Lastspitze, die das Stromnetz
-belastet. Damit sich die aggregierte Last über viele Nutzer **glättet**,
-verschiebt jeder Sensor seine Schaltflanken um einen kleinen Versatz:
-
-- **Einschalten:** Verzögerung gleichverteilt in **[0, 600 s]** (Erwartungswert
-  +5 min). Es wird **nie vor** Beginn des günstigen Blocks eingeschaltet.
-- **Ausschalten:** symmetrischer Versatz in **[−300 s, +300 s]** um die
-  Blockgrenze – der Erwartungswert fällt damit genau auf die Grenze.
-
-Der Versatz ist **deterministisch** aus der (vom Nutzer nicht editierbaren)
-internen ID des Sensors abgeleitet: makroskopisch zufällig und über viele
-Sensoren gleichverteilt, aber je Sensor stabil und reproduzierbar (kein
-Flackern, jederzeit nachrechenbar). Da für beide Flanken derselbe Wert
-verwendet wird, **verschiebt** sich das günstige Fenster nur und wird nie
-zerteilt; seine Länge verkürzt sich für jeden Sensor um konstant 5 min (beim
-kleinsten 15‑min‑Block bleiben also 10 min). Der Jitter wirkt ausschließlich auf
-diesen Binary-Sensor – die Preis-Sensoren bleiben unberührt.
+Damit viele Nutzer nicht exakt zur selben Sekunde schalten, verschiebt jeder
+Sensor seine Schaltflanken um einen kleinen deterministischen Versatz:
+Einschalten mit bis zu 10 Minuten Verzögerung, Ausschalten symmetrisch um die
+Blockgrenze. Der Versatz ist je Sensor stabil und reproduzierbar – das
+Schaltfenster verschiebt sich nur als Ganzes und wird nicht zerteilt.
 
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
@@ -260,33 +180,7 @@ diesen Binary-Sensor – die Preis-Sensoren bleiben unberührt.
 | `cheap_windows`      | Tatsächliche, gejitterte Schaltfenster heute (`on`, `off`) |
 | `vat_included`       | `true`, wenn brutto gerechnet wird                       |
 
-```yaml
-automation:
-  - alias: "Boiler in den günstigsten Stunden laufen lassen"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.boiler_gunstige_stunde
-        to: "on"
-    action:
-      - action: switch.turn_on
-        target:
-          entity_id: switch.boiler
-  - alias: "Boiler ausschalten, wenn nicht mehr günstig"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.boiler_gunstige_stunde
-        to: "off"
-    action:
-      - action: switch.turn_off
-        target:
-          entity_id: switch.boiler
-```
-
-> Die genauen Entity-IDs können je nach Spracheinstellung abweichen.
-
-### Attribute des Sensors „Arbeitspreis“
-
-Der Sensor `Arbeitspreis` enthält zusätzlich umfangreiche Attribute:
+### Attribute des Sensors „Arbeitspreis"
 
 | Attribut            | Beschreibung                                              |
 |---------------------|-----------------------------------------------------------|
@@ -301,51 +195,7 @@ Der Sensor `Arbeitspreis` enthält zusätzlich umfangreiche Attribute:
 | `basic_fee` / `basic_fee_unit` | Aktuelle Grundgebühr und deren Einheit        |
 | `prices_today`      | Liste aller heutigen Preise (`start`, `end`, `price`)     |
 | `prices_tomorrow`   | Liste aller morgigen Preise (sofern verfügbar)            |
-| `prices`            | Vollständige Preisliste (gut für Diagramme)               |
-
-## Beispiele
-
-### Automatisierung: Gerät unter einem Gesamtpreis-Schwellwert einschalten
-
-Alternativ zum Binary-Sensor „Günstige Stunde“ lässt sich auch direkt ein
-absoluter Schwellwert auf den **Gesamtpreis** (EUR/kWh) setzen:
-
-```yaml
-automation:
-  - alias: "Boiler bei niedrigem Gesamtpreis einschalten"
-    trigger:
-      - platform: numeric_state
-        entity_id: sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh
-        below: 0.20          # EUR/kWh inkl. aller variablen Nebenkosten
-    action:
-      - action: switch.turn_on
-        target:
-          entity_id: switch.boiler
-```
-
-### Diagramm mit ApexCharts Card
-
-Mit der [ApexCharts Card](https://github.com/RomRider/apexcharts-card) lässt sich
-der Preisverlauf darstellen:
-
-```yaml
-type: custom:apexcharts-card
-header:
-  title: smartTIMES Gesamtpreis
-  show: true
-series:
-  - entity: sensor.smartenergy_smarttimes_gesamtpreis_eur_kwh
-    name: Gesamtpreis
-    type: column
-    data_generator: |
-      return entity.attributes.prices.map(p => {
-        return [new Date(p.start).getTime(), p.price];
-      });
-```
-
-> Die `prices`-Attribute des **Gesamtpreis**-Sensors enthalten die Gesamtkosten
-> je Intervall (ct/kWh); der **Arbeitspreis**-Sensor bietet dieselbe Struktur
-> für den reinen Energiepreis.
+| `prices`            | Vollständige Preisliste                                   |
 
 ## Hinweise
 
