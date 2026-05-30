@@ -202,8 +202,8 @@ Schaltfenster verschiebt sich nur als Ganzes und wird nicht zerteilt.
 - Die smartTIMES-API gibt die Preise für den nächsten Tag typischerweise am
   Nachmittag bekannt. Vorher bleibt `prices_tomorrow` leer.
 - Die API wird höchstens alle 30 Minuten abgefragt; der Sensorwert für den
-  aktuellen Preis wird dennoch minütlich neu berechnet, damit der Wechsel des
-  15-Minuten-Intervalls sofort korrekt angezeigt wird.
+  aktuellen Preis wird dennoch minütlich neu berechnet, damit der Wechsel zur
+  vollen Stunde sofort korrekt angezeigt wird.
 
 ## Lizenz
 
