@@ -238,7 +238,8 @@ verschiebt jeder Sensor seine Schaltflanken um einen kleinen Versatz:
 - **Einschalten:** Verzögerung gleichverteilt in **[0, 600 s]** (Erwartungswert
   +5 min). Es wird **nie vor** Beginn des günstigen Blocks eingeschaltet.
 - **Ausschalten:** symmetrischer Versatz in **[−300 s, +300 s]** um die
-  Blockgrenze – der Erwartungswert fällt damit genau auf die Grenze.
+  Blockgrenze – der Erwartungswert fällt damit genau auf die Grenze. Das
+  Ausschalten darf hier bis zu 5 min in die nächste Preiszone hineinreichen.
 
 Der Versatz ist **deterministisch** aus der (vom Nutzer nicht editierbaren)
 internen ID des Sensors abgeleitet: makroskopisch zufällig und über viele
@@ -249,6 +250,15 @@ zerteilt; seine Länge verkürzt sich für jeden Sensor um konstant 5 min (beim
 kleinsten 15‑min‑Block bleiben also 10 min). Der Jitter wirkt ausschließlich auf
 diesen Binary-Sensor – die Preis-Sensoren bleiben unberührt.
 
+**Gleichstandsbedingt verlängerte Blöcke:** Zieht die Gleichstands-Mechanik
+(siehe oben) am Schwellwert zusätzliche Intervalle hinein, ist der Block ohnehin
+schon länger als konfiguriert. Damit sich das **nicht** auch noch über das
+Ausschalt-Jitter in die nächste (teurere) Preiszone fortsetzt, wird das
+Ausschalten an einem solchen Blockende **rückwärts** gelegt: Versatz in
+**[−600 s, 0 s]** (Erwartungswert −5 min), also **immer vor oder genau auf** der
+Blockgrenze – weiterhin gejittert, aber ohne in die nächste Zone auszugreifen.
+Solche Enden sind im Attribut `cheap_windows` mit `soft_end: true` markiert.
+
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
 | `cheap_hours`        | Konfigurierte Anzahl günstiger Stunden pro Tag           |
@@ -257,7 +267,7 @@ diesen Binary-Sensor – die Preis-Sensoren bleiben unberührt.
 | `jitter_offset_seconds` | Konstanter Einschalt-Versatz dieses Sensors (Sekunden) |
 | `next_cheap_start`   | Nächster (gejitterter) Einschaltzeitpunkt                |
 | `cheap_intervals`    | Liste der heutigen günstigen Intervalle (`start`, `end`, `price`) |
-| `cheap_windows`      | Tatsächliche, gejitterte Schaltfenster heute (`on`, `off`) |
+| `cheap_windows`      | Tatsächliche, gejitterte Schaltfenster heute (`on`, `off`, `soft_end`) |
 | `vat_included`       | `true`, wenn brutto gerechnet wird                       |
 
 ```yaml

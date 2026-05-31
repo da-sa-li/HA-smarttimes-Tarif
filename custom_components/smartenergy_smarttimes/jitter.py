@@ -44,7 +44,7 @@ def cheap_phase(seed: str) -> float:
 
 
 def jittered_window(
-    start: datetime, end: datetime, phase: float
+    start: datetime, end: datetime, phase: float, soft_end: bool = False
 ) -> tuple[datetime, datetime]:
     """Verschobenes Ein-/Ausschaltfenster eines zusammenhängenden Günstig-Blocks.
 
@@ -56,19 +56,32 @@ def jittered_window(
       gleichverteilt in ``[0, JITTER_ON_MAX_SECONDS]``. Es wird **nie vor**
       Beginn des günstigen Blocks eingeschaltet (sonst liefe der Verbraucher in
       die noch teure Zeit hinein).
-    * **Ausschalten:** Versatz ``(phase - 0.5) * JITTER_OFF_SPAN_SECONDS`` →
-      symmetrisch um die Blockgrenze. Der Erwartungswert fällt damit genau auf
-      die Grenze (volle Stunde).
+    * **Ausschalten (normales Blockende, ``soft_end=False``):** Versatz
+      ``(phase - 0.5) * JITTER_OFF_SPAN_SECONDS`` → symmetrisch um die
+      Blockgrenze. Der Erwartungswert fällt genau auf die Grenze; das
+      Ausschalten darf bis zu ``JITTER_OFF_SPAN_SECONDS / 2`` in die nächste
+      Preiszone hineinreichen.
+    * **Ausschalten (gleichstandsbedingtes Blockende, ``soft_end=True``):**
+      Versatz ``-(1 - phase) * JITTER_OFF_SPAN_SECONDS`` → das Ausschalten
+      liegt **immer vor oder genau auf** der Blockgrenze (``[end -
+      JITTER_OFF_SPAN_SECONDS, end]``, Erwartungswert ``end -
+      JITTER_OFF_SPAN_SECONDS / 2``). So greift ein nur durch Gleichstand
+      verlängerter Block nicht zusätzlich in die nächste (teurere) Preiszone
+      aus, bleibt aber gejittert.
 
     Da für beide Flanken **dieselbe** ``phase`` verwendet wird, verschiebt sich
-    das Fenster als Ganzes: Seine Länge verkürzt sich für *jeden* Sensor um
-    konstant ``JITTER_OFF_SPAN_SECONDS / 2`` Sekunden, unabhängig von ``phase``.
-    Ein durchgehender Block wird so nie zerteilt und – solange er länger als
-    dieser feste Betrag ist – auch nie ausgelöscht. Bei der kleinsten möglichen
-    Blocklänge (ein 15-Minuten-Intervall) bleiben damit 10 min Einschaltzeit.
+    das Fenster als Ganzes; seine Länge ist für *jeden* Sensor konstant
+    (unabhängig von ``phase``): ``L - JITTER_OFF_SPAN_SECONDS / 2`` bzw. bei
+    ``soft_end`` ``L - JITTER_OFF_SPAN_SECONDS``. Ein durchgehender Block wird
+    so nie zerteilt und – solange er länger als dieser feste Betrag ist – auch
+    nie ausgelöscht. Bei der kleinsten Blocklänge (ein 15-Minuten-Intervall)
+    bleiben 10 min bzw. 5 min Einschaltzeit.
     """
     on_time = start + timedelta(seconds=phase * JITTER_ON_MAX_SECONDS)
-    off_time = end + timedelta(seconds=(phase - 0.5) * JITTER_OFF_SPAN_SECONDS)
+    if soft_end:
+        off_time = end - timedelta(seconds=(1.0 - phase) * JITTER_OFF_SPAN_SECONDS)
+    else:
+        off_time = end + timedelta(seconds=(phase - 0.5) * JITTER_OFF_SPAN_SECONDS)
     # Sicherheitsnetz für (hier nicht vorkommende) extrem kurze Blöcke: das
     # Fenster darf nie leer oder negativ werden.
     if off_time < on_time:

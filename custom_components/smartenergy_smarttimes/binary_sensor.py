@@ -123,8 +123,14 @@ class CheapHourBinarySensor(
                 for p in cheap
             ],
             # Tatsächliche, gejitterte Schaltfenster (so, wie der Sensor schaltet).
+            # ``soft_end``: Blockende gleichstandsbedingt gekappt (kein Ausgreifen
+            # in die nächste Preiszone).
             "cheap_windows": [
-                {"on": on_time.isoformat(), "off": off_time.isoformat()}
-                for on_time, off_time in windows
+                {
+                    "on": on_time.isoformat(),
+                    "off": off_time.isoformat(),
+                    "soft_end": soft_end,
+                }
+                for on_time, off_time, soft_end in windows
             ],
         }

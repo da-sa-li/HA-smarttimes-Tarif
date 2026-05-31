@@ -130,23 +130,33 @@ class SmartTimesData:
         # eingehalten wird, statt zu wenige Intervalle zu markieren.
         return max(1, math.ceil(cheap_hours * per_hour))
 
-    def _cheap_starts(self, day, cheap_hours: float) -> set[datetime]:
-        """Startzeiten der günstigsten Intervalle eines Tages.
+    def _cheap_selection(
+        self, day, cheap_hours: float
+    ) -> tuple[set[datetime], set[datetime]]:
+        """``(alle, strikte)`` Startzeiten der günstigsten Intervalle eines Tages.
 
-        Es werden mindestens so viele Intervalle gewählt, wie ``cheap_hours``
-        ergibt. Teilen sich mehrere Intervalle den Preis des teuersten noch
-        gewählten Intervalls (Gleichstand am Schwellwert), werden *alle* davon
-        markiert – auch wenn dadurch mehr als ``cheap_hours`` zustande kommen.
-        So bleibt keine gleich günstige Stunde unberücksichtigt.
+        ``strikte`` enthält **genau** so viele Intervalle, wie ``cheap_hours``
+        ergibt (Gleichstand nach Startzeit aufgelöst). ``alle`` enthält
+        zusätzlich die bei Gleichstand am Schwellwert mitmarkierten
+        „Überschuss"-Intervalle: Teilen sich mehrere Intervalle den Preis des
+        teuersten noch gewählten Intervalls, werden *alle* davon markiert –
+        auch wenn dadurch mehr als ``cheap_hours`` zustande kommen. So bleibt
+        keine gleich günstige Stunde unberücksichtigt.
         """
         prices = self.for_day(day)
         if not prices:
-            return set()
+            return set(), set()
         valued = [(self.all_in_value(p), p) for p in prices]
         ranked = sorted(valued, key=lambda item: (item[0], item[1].start))
         count = min(self._cheap_count(cheap_hours), len(ranked))
         cutoff_value = ranked[count - 1][0]
-        return {p.start for value, p in valued if value <= cutoff_value}
+        all_starts = {p.start for value, p in valued if value <= cutoff_value}
+        strict_starts = {p.start for _, p in ranked[:count]}
+        return all_starts, strict_starts
+
+    def _cheap_starts(self, day, cheap_hours: float) -> set[datetime]:
+        """Startzeiten *aller* günstigen Intervalle eines Tages (inkl. Gleichstand)."""
+        return self._cheap_selection(day, cheap_hours)[0]
 
     def cheap_intervals(self, day, cheap_hours: float) -> list[MarketPrice]:
         """Die günstigsten Intervalle eines Tages (nach Gesamtkosten), chronologisch."""
@@ -162,34 +172,46 @@ class SmartTimesData:
 
     def _cheap_blocks(
         self, day, cheap_hours: float
-    ) -> list[tuple[datetime, datetime]]:
-        """Zusammenhängende Günstig-Blöcke eines Tages als ``(start, end)``.
+    ) -> list[tuple[datetime, datetime, bool]]:
+        """Zusammenhängende Günstig-Blöcke eines Tages als ``(start, end, soft_end)``.
 
         Direkt aufeinanderfolgende günstige Intervalle werden zu einem Block
         zusammengefasst, damit der Jitter pro **Block** (nicht pro Intervall)
         wirkt – ein durchgehender günstiger Zeitraum wird so nie zerteilt.
+
+        ``soft_end`` ist ``True``, wenn das Blockende nur durch die
+        Gleichstands-Mechanik zustande kommt: Das letzte Intervall des Blocks
+        ist ein „Überschuss"-Intervall am Schwellwert, das über die
+        konfigurierte Stundenzahl hinausgeht. Bei einem solchen Ende soll der
+        Sensor nicht zusätzlich in die nächste (teurere) Preiszone ausgreifen.
         """
-        blocks: list[tuple[datetime, datetime]] = []
+        all_starts, strict_starts = self._cheap_selection(day, cheap_hours)
+        surplus = all_starts - strict_starts
+        # [start, end, letzter Intervallstart]
+        blocks: list[list[datetime]] = []
         for price in self.cheap_intervals(day, cheap_hours):  # chronologisch
             if blocks and blocks[-1][1] == price.start:
-                blocks[-1] = (blocks[-1][0], price.end)
+                blocks[-1][1] = price.end
+                blocks[-1][2] = price.start
             else:
-                blocks.append((price.start, price.end))
-        return blocks
+                blocks.append([price.start, price.end, price.start])
+        return [(start, end, last in surplus) for start, end, last in blocks]
 
     def jittered_cheap_windows(
         self, day, cheap_hours: float, phase: float
-    ) -> list[tuple[datetime, datetime]]:
-        """Gejitterte Ein-/Ausschaltfenster der Günstig-Blöcke eines Tages.
+    ) -> list[tuple[datetime, datetime, bool]]:
+        """Gejitterte Schaltfenster der Günstig-Blöcke als ``(on, off, soft_end)``.
 
         ``phase`` ist der sensoreigene, deterministische Versatz-Wert (siehe
-        :func:`.jitter.cheap_phase`). Wirkt ausschließlich für den
-        „Günstige Stunde"-Sensor.
+        :func:`.jitter.cheap_phase`). ``soft_end`` zeigt an, dass das Blockende
+        gleichstandsbedingt gekappt wurde (Ausschalten nicht in die nächste
+        Preiszone). Wirkt ausschließlich für den „Günstige Stunde"-Sensor.
         """
-        return [
-            jittered_window(start, end, phase)
-            for start, end in self._cheap_blocks(day, cheap_hours)
-        ]
+        windows: list[tuple[datetime, datetime, bool]] = []
+        for start, end, soft_end in self._cheap_blocks(day, cheap_hours):
+            on_time, off_time = jittered_window(start, end, phase, soft_end=soft_end)
+            windows.append((on_time, off_time, soft_end))
+        return windows
 
     def is_cheap_now(
         self, moment: datetime, cheap_hours: float, phase: float
@@ -202,7 +224,7 @@ class SmartTimesData:
         """
         day = dt_util.as_local(moment).date()
         for d in (day - timedelta(days=1), day):
-            for on_time, off_time in self.jittered_cheap_windows(
+            for on_time, off_time, _ in self.jittered_cheap_windows(
                 d, cheap_hours, phase
             ):
                 if on_time <= moment < off_time:
@@ -217,7 +239,7 @@ class SmartTimesData:
         upcoming = [
             on_time
             for d in (day, day + timedelta(days=1))
-            for on_time, _ in self.jittered_cheap_windows(d, cheap_hours, phase)
+            for on_time, _, _ in self.jittered_cheap_windows(d, cheap_hours, phase)
             if on_time > moment
         ]
         return min(upcoming) if upcoming else None
