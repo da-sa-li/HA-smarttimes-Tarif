@@ -157,6 +157,15 @@ Versatz ist je Sensor stabil und reproduzierbar – das Schaltfenster verschiebt
 sich nur als Ganzes und wird nicht zerteilt. Den genauen Versatz zeigt das
 Attribut `jitter_offset_seconds`.
 
+**Gleichstandsbedingt verlängerte Blöcke:** Zieht die Gleichstands-Mechanik
+(siehe oben) am Schwellwert zusätzliche Intervalle hinein, ist der Block ohnehin
+schon länger als konfiguriert. Damit sich das **nicht** auch noch über das
+Ausschalt-Jitter in die nächste (teurere) Preiszone fortsetzt, wird das
+Ausschalten an einem solchen Blockende **rückwärts** gelegt: Versatz in
+**[−600 s, 0 s]** (Erwartungswert −5 min), also **immer vor oder genau auf** der
+Blockgrenze – weiterhin gejittert, aber ohne in die nächste Zone auszugreifen.
+Solche Enden sind im Attribut `cheap_windows` mit `soft_end: true` markiert.
+
 | Attribut             | Beschreibung                                              |
 |----------------------|-----------------------------------------------------------|
 | `cheap_hours`        | Konfigurierte Anzahl günstiger Stunden pro Tag           |
@@ -165,7 +174,7 @@ Attribut `jitter_offset_seconds`.
 | `jitter_offset_seconds` | Konstanter Einschalt-Versatz dieses Sensors (Sekunden) |
 | `next_cheap_start`   | Nächster (gejitterter) Einschaltzeitpunkt                |
 | `cheap_intervals`    | Liste der heutigen günstigen Intervalle (`start`, `end`, `price`) |
-| `cheap_windows`      | Tatsächliche, gejitterte Schaltfenster heute (`on`, `off`) |
+| `cheap_windows`      | Tatsächliche, gejitterte Schaltfenster heute (`on`, `off`, `soft_end`) |
 | `vat_included`       | `true`, wenn brutto gerechnet wird                       |
 
 ### Attribute des Sensors „Arbeitspreis“
